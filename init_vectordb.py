@@ -27,19 +27,21 @@ def load_directory(path:str) -> List[Document]:
 
 # embeddings = OpenAIEmbeddings()
 collection = CHROMA_CLIENT.get_or_create_collection("law-docs")
+# print(collection.peek())
+# exit()
+
 text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
 dir_docs = load_directory("./files")
 texts = text_splitter.split_documents(dir_docs)
 print(len(texts))
-print(texts[0].page_content)
+print(texts[1].metadata)
 
 for i,t in enumerate(texts, start=1):
     collection.upsert(
         documents=[t.page_content],
         metadatas=[t.metadata],
-        # ids=["fraud law"+str(i)]
+        ids=[t.metadata.get("source")+str(i)]
     )
-
 
 # docsearch = Chroma.from_texts(texts, embeddings, metadatas=[{"source": f"Text chunk {i} of {len(texts)}"} for i in range(len(texts))], persist_directory="db")
 # docsearch.persist()
