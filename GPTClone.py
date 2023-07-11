@@ -24,29 +24,28 @@ def main():
     llm = ChatOpenAI(temperature=0)
 
     if user_question:
-        # search = SerpAPIWrapper(serpapi_api_key="4e9d8cb4c706be6da14853f85f5804aee60fc685",
-        #     params={
-        #     "engine": "baidu",
-        # })
-        # llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
-        # tools = [
-        #     Tool(
-        #         name="search", 
-        #         func=search.run,
-        #         description="useful when you need to answer questions about current events. You should ask pointed questions"
-        #     ),
-        #     Tool(
-        #         name="Calculator",
-        #         func=llm_math_chain.run,
-        #         description="useful when you need to answer math questions"
-        #     )
-        # ]
-        tools = load_tools(["llm-math", "serpapi"], llm=llm)
+        search = SerpAPIWrapper(params={
+            "engine": "google",
+        })
+        llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
+        tools = [
+            Tool(
+                name="search", 
+                func=search.run,
+                description="useful when you need to answer questions about current events. You should ask pointed questions"
+            ),
+            Tool(
+                name="Calculator",
+                func=llm_math_chain.run,
+                description="useful when you need to answer math questions"
+            )
+        ]
+        # tools = load_tools(["llm-math", "serpapi"], llm=llm)
 
         agent = initialize_agent(
             tools=tools,
             llm=llm,
-            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION, 
+            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,   # only one works
             memory=ConversationBufferMemory(memory_key="chat_history"),
             handle_parsing_errors=True,
             verbose=True
