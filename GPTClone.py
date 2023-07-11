@@ -1,5 +1,5 @@
 import sys, trace, os
-from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain
+from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain, GoogleSearchAPIWrapper
 from langchain.chat_models  import ChatOpenAI
 from langchain.memory import ConversationBufferMemory, ChatMessageHistory
 from langchain.agents import load_tools, initialize_agent, Tool, AgentType
@@ -19,13 +19,14 @@ def main():
     # st.header("Ask a question 💬")
     # user_question = st.text_input("Input text here....")
     user_question="What is the 25% of 300?"
-    user_question="背诵随便一首唐诗"
-    # user_question = "杭州今日天气。用中文问答"
+    # user_question="背诵随便一首唐诗"
+    user_question = "杭州今日的天气。用中文问答"
     llm = ChatOpenAI(temperature=0)
 
     if user_question:
-        # search = SerpAPIWrapper(params={
-            # "engine": "baidu",
+        # search = SerpAPIWrapper(serpapi_api_key="4e9d8cb4c706be6da14853f85f5804aee60fc685",
+        #     params={
+        #     "engine": "baidu",
         # })
         # llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
         # tools = [
@@ -41,6 +42,7 @@ def main():
         #     )
         # ]
         tools = load_tools(["llm-math", "serpapi"], llm=llm)
+
         agent = initialize_agent(
             tools=tools,
             llm=llm,
