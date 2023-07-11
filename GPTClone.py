@@ -1,46 +1,61 @@
+import sys, trace, os
 from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain
 from langchain.chat_models  import ChatOpenAI
 from langchain.memory import ConversationBufferMemory, ChatMessageHistory
-from langchain.agents import initialize_agent, Tool, AgentType
+from langchain.agents import load_tools, initialize_agent, Tool, AgentType
 from langchain.callbacks import get_openai_callback
+
+from langchain.agents.agent_toolkits import create_python_agent
+from langchain.tools.python.tool import PythonAstREPLTool
+from langchain.python import PythonREPL
+
 import streamlit as st
 from dotenv import load_dotenv
 
 load_dotenv()
-st.set_page_config(page_title="OpenAI Chat")
-st.header("Ask a question 💬")
-user_question = st.text_input("Input text here....")
-llm = ChatOpenAI(model="gpt-3.5-turbo", temperature=0)
 
-if user_question:
-    search = SerpAPIWrapper(params={
-        "engine": "baidu",
-    })
-    llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
-    tools = [
-        Tool(
-            name="search", 
-            func=search.run,
-            description="useful when you need to answer questions about current events. You should ask pointed questions"
-        ),
-        Tool(
-            name="Calculator",
-            func=llm_math_chain.run,
-            description="useful when you need to answer math questions"
+def main():
+    # st.set_page_config(page_title="OpenAI Chat")
+    # st.header("Ask a question 💬")
+    # user_question = st.text_input("Input text here....")
+    user_question="What is the 25% of 300?"
+    user_question="背诵随便一首唐诗"
+    # user_question = "杭州今日天气。用中文问答"
+    llm = ChatOpenAI(temperature=0)
+
+    if user_question:
+        # search = SerpAPIWrapper(params={
+            # "engine": "baidu",
+        # })
+        # llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
+        # tools = [
+        #     Tool(
+        #         name="search", 
+        #         func=search.run,
+        #         description="useful when you need to answer questions about current events. You should ask pointed questions"
+        #     ),
+        #     Tool(
+        #         name="Calculator",
+        #         func=llm_math_chain.run,
+        #         description="useful when you need to answer math questions"
+        #     )
+        # ]
+        tools = load_tools(["llm-math", "serpapi"], llm=llm)
+        agent = initialize_agent(
+            tools=tools,
+            llm=llm,
+            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION, 
+            memory=ConversationBufferMemory(memory_key="chat_history"),
+            handle_parsing_errors=True,
+            verbose=True
         )
-    ]
-    agent = initialize_agent(
-        tools=tools,
-        llm=llm,
-        agent=AgentType.CONVERSATIONAL_REACT_DESCRIPTION, 
-        memory=ConversationBufferMemory(memory_key="chat_history"),
-        handle_parsing_errors=True,
-        verbose=True
-    )
+        print(agent.run(user_question))
 
-    with get_openai_callback() as cb:
-        response = agent.run(user_question)
-        st.write(response)
+        # with get_openai_callback() as cb:
+        #     response = agent.run(user_question)
+        #     st.write(response)
+
+main()
 
 # template = """Assistant is a large language model trained by OpenAI.
 
