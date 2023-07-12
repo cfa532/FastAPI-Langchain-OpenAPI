@@ -22,6 +22,7 @@ def main():
     user_question="背诵随便一首唐诗"
     user_question = "杭州今日的天气。用中文回答"
     llm = ChatOpenAI(temperature=0)
+    llm2 = OpenAI(temperature=0)
 
     if user_question:
         search = SerpAPIWrapper(params={
@@ -44,7 +45,8 @@ def main():
 
         agent = initialize_agent(
             tools=tools,
-            llm=llm,
+            llm=llm2,
+            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,      # only one works
             memory=ConversationBufferMemory(memory_key="chat_history"),
             handle_parsing_errors=True,
             verbose=True
