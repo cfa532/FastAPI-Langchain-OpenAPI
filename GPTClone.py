@@ -1,7 +1,7 @@
 import sys, trace, os
 from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain, GoogleSearchAPIWrapper
 from langchain.chat_models  import ChatOpenAI
-from langchain.memory import ConversationBufferMemory, ChatMessageHistory
+from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
 from langchain.agents import load_tools, initialize_agent, Tool, AgentType
 from langchain.callbacks import get_openai_callback
 
@@ -19,8 +19,8 @@ def main():
     # st.header("Ask a question 💬")
     # user_question = st.text_input("Input text here....")
     user_question="What is the 25% of 300?"
-    # user_question="背诵随便一首唐诗"
-    user_question = "杭州今日的天气。用中文问答"
+    user_question="背诵随便一首唐诗"
+    user_question = "杭州今日的天气。用中文回答"
     llm = ChatOpenAI(temperature=0)
 
     if user_question:
@@ -34,22 +34,22 @@ def main():
                 func=search.run,
                 description="useful when you need to answer questions about current events. You should ask pointed questions"
             ),
-            Tool(
-                name="Calculator",
-                func=llm_math_chain.run,
-                description="useful when you need to answer math questions"
-            )
+            # Tool(
+            #     name="Calculator",
+            #     func=llm_math_chain.run,
+            #     description="useful when you need to answer math questions"
+            # )
         ]
-        # tools = load_tools(["llm-math", "serpapi"], llm=llm)
+        tools.extend(load_tools(["llm-math"], llm=llm))
 
         agent = initialize_agent(
             tools=tools,
             llm=llm,
-            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,   # only one works
             memory=ConversationBufferMemory(memory_key="chat_history"),
             handle_parsing_errors=True,
             verbose=True
         )
+        # agent.agent.llm_chain.prompt. += "Always reply in Chinese"
         print(agent.run(user_question))
 
         # with get_openai_callback() as cb:
