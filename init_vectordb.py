@@ -15,7 +15,7 @@ load_dotenv()
 
 from config import CHROMA_CLIENT
 embeddings = OpenAIEmbeddings()
-CHROMA_CLIENT.delete_collection("law-docs")
+# CHROMA_CLIENT.delete_collection("law-docs")
 
 def load_directory(path:str) -> List[Document]:
     docs:List[Document] = []
@@ -23,9 +23,9 @@ def load_directory(path:str) -> List[Document]:
     docs.extend(loader.load())
     loader = DirectoryLoader(path, glob='**/*.docx', loader_cls=Docx2txtLoader, silent_errors=True)
     docs.extend(loader.load())
-    # loader = DirectoryLoader(path, glob='**/*.pdf', loader_cls=PyPDFLoader, silent_errors=True)
-    # loader = PyPDFDirectoryLoader(path)
-    # docs.extend(loader.load())
+    # # loader = DirectoryLoader(path, glob='**/*.pdf', loader_cls=PyPDFLoader, silent_errors=True)
+    loader = PyPDFDirectoryLoader(path)
+    docs.extend(loader.load())
     return docs
 
 # collection = CHROMA_CLIENT.get_collection("law-docs", embedding_function=embeddings)
@@ -41,14 +41,14 @@ print("docs len=", len(texts))
 # print(texts[1].metadata)
 
 for i,t in enumerate(texts, start=1):
-    # collection.add(
-    src = re.findall('files\/(.+)\.',t.metadata.get("source"))
+    src = re.findall('files\/(.+)\.',t.metadata.get("source"))[0][:-1]
     print(src)
-    collection.upsert(
+    collection.add(
+    # collection.upsert(
         embeddings=embeddings.embed_query(t.page_content),
         documents=[t.page_content],
-        metadatas=[{"source": src[0], "类别":"法律条文"}],
-        ids=[src[0]+'-'+str(i)]
+        metadatas=[{"source": src, "类别":"法律条文"}],
+        ids=[src+'-'+str(i)]
     )
 print(collection.peek())
 
