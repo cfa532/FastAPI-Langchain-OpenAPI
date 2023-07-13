@@ -1,4 +1,4 @@
-import sys, trace, os
+import langchain
 from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain, GoogleSearchAPIWrapper
 from langchain.chat_models  import ChatOpenAI
 from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
@@ -46,13 +46,15 @@ def main():
         agent = initialize_agent(
             tools=tools,
             llm=llm2,
-            agent=AgentType.CHAT_ZERO_SHOT_REACT_DESCRIPTION,      # only one works
+            agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,      # only one works
             memory=ConversationBufferMemory(memory_key="chat_history"),
             handle_parsing_errors=True,
             verbose=True
         )
         # agent.agent.llm_chain.prompt. += "Always reply in Chinese"
+        langchain.debug = True
         print(agent.run(user_question))
+        langchain.debug = False
 
         # with get_openai_callback() as cb:
         #     response = agent.run(user_question)
