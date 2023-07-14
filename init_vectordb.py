@@ -16,6 +16,8 @@ load_dotenv()
 from config import CHROMA_CLIENT
 embeddings = OpenAIEmbeddings()
 # CHROMA_CLIENT.delete_collection("law-docs")
+# CHROMA_CLIENT.reset()
+# exit()
 
 def load_directory(path:str) -> List[Document]:
     docs:List[Document] = []
