@@ -23,3 +23,7 @@ Now you can run `ask_wikipedia.py`.
 
 I also created a video to demonstrate the demo. 
 [![Screenshot](https://i.ibb.co/LCzVkff/embedding-vid.jpg)](https://youtu.be/ytt4D5br6Fk)
+
+1. OCR设置
+输出环境变量
+TESSDATA_PREFIX=/tessdata文件所在目录。其中eng数据是必须的，否则ocr无法启动。缺省选择chi-sim作为识别语言。如果文件用了不同的语言，需要分别处理。

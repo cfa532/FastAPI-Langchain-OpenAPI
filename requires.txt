@@ -10,3 +10,5 @@ sentence_transformers==2.2.2
 pypdf==3.12.1
 docx2txt==0.8
 tiktoken==0.4.0
+PyPDF2==3.0.1
+textract==1.6.5
