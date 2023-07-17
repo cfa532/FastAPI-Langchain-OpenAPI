@@ -1,6 +1,6 @@
 import langchain
 from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain, GoogleSearchAPIWrapper
-from langchain.chat_models  import ChatOpenAI
+from langchain.chat_models import ChatOpenAI
 from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
 from langchain.agents import load_tools, initialize_agent, Tool, AgentType
 from langchain.callbacks import get_openai_callback
