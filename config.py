@@ -8,7 +8,7 @@ load_dotenv()
     the models maximal context size."""
 MAX_TOKENS = -1
 
-CHROMA_CLIENT = chromadb.Client(Settings(chroma_api_impl="rest",
+CHROMA_WEB_CLIENT = chromadb.Client(Settings(chroma_api_impl="rest",
                                         chroma_server_host="localhost",
                                         chroma_server_http_port="8000"
                                     ))

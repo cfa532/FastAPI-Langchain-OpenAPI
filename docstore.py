@@ -3,10 +3,10 @@ from langchain.vectorstores import Chroma
 from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
 from langchain.agents.react.base import DocstoreExplorer
-from config import CHROMA_CLIENT
+from config import CHROMA_WEB_CLIENT
 from dotenv import load_dotenv
 load_dotenv()
-db = Chroma(client=CHROMA_CLIENT, collection_name="law-docs")
+db = Chroma(client=CHROMA_WEB_CLIENT, collection_name="law-docs")
 docstore = DocstoreExplorer(db)
 # db.as_retriever()
 tools = [
