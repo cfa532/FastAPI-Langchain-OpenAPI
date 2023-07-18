@@ -1,12 +1,13 @@
-import streamlit as st, re, docx, chromadb
-from chromadb.config import Settings
+import streamlit as st, re, docx, langchain
+# from chromadb.config import Settings
+from langchain import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.chroma import Chroma
-from langchain.callbacks import get_openai_callback
+# from langchain.callbacks import get_openai_callback
 
 from config import CHROMA_WEB_CLIENT, EMBEDDING_FUNC
-from docstore import docstoreReactAgent
-from ocr import load_pdf, load_doc
+from docstore import docstoreReactAgent, retrievalQAChain
+from ocr import load_pdf
 
 def main():
     st.set_page_config("Upload files")
@@ -21,23 +22,27 @@ def main():
             if re.search("\.pdf$", f.name):
                 text += load_pdf(f.getvalue())
             elif re.search("\.docx$", f.name):
-                d = docx.Document(f)
-                for line in d.paragraphs:
+                for line in docx.Document(f).paragraphs:
                     text += "\n"+line.text
-            # elif re.search("\.doc$", f.name):
-                # text = load_doc(f.getvalue())
             elif re.search("\.txt$", f.name):
                 for line in f:
                     text += line
+
             chunks.extend(text_splitter.split_text(text))
+
         print("num of chunks=", len(chunks))
 
-        # 检查案件名称，答辩人，辩护律师
         file_db = Chroma.from_texts(chunks, embedding=EMBEDDING_FUNC)
-        res = docstoreReactAgent(file_db, "案件名称是什么？")
+        # Upload all the docs to 检查案件名称，答辩人，辩护律师
 
+        res = retrievalQAChain(file_db, "从上传的第三方文件中，查询下列信息，并且用Json格式输出中文答案。案件名称？", True)
+        res += retrievalQAChain(file_db, "从上传的第三方文件中，查询下列信息，并且用Json格式输出中文答案。原告？", True)
+        res += retrievalQAChain(file_db, "从上传的第三方文件中，查询下列信息，并且用Json格式输出中文答案。被告？", True)
+        res += retrievalQAChain(file_db, "从上传的第三方文件中，查询下列信息，并且用Json格式输出中文答案。主审法官？", True)
+        res += retrievalQAChain(file_db, "从上传的第三方文件中，查询下列信息，并且用Json格式输出中文答案。案情简介？", True)
+        # res = retrievalQAChain(file_db, "从上传的第三方文件中，查询下列信息，并且用Json格式输出中文答案。1、案件名称，2、原告，3、被告，、主审法院，4、主审法官，5、案情简介", True)
+        # res = docstoreReactAgent(file_db, "案件名称是什么？全部问题使用中文问答问题。", True)     # does not work
         # docs = file_db.similarity_search("案件名称")
-        # print(docs[0])
         # chain = load_qa_chain(llm=OpenAI())
         # res = chain.run(input_documents=docs, question="案件名称")
         print(res)
