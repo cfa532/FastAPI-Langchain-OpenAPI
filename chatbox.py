@@ -12,13 +12,11 @@ from langchain.chains.question_answering import load_qa_chain
 from langchain.llms import OpenAI
 from langchain.prompts.prompt import PromptTemplate
 
+from config import LLM, EMBEDDING_FUNC
 
-OPENAI_API_KEY = 'sk-XXXXX'
-os.environ['OPENAI_API_KEY'] = "sk-XXXX"
 persist_directory = 'adidas'
 # we will use OpenAI as our embeddings provider
-embedding = OpenAIEmbeddings()
-vectordb = Chroma(persist_directory=persist_directory, embedding_function=embedding)
+vectordb = Chroma(persist_directory=persist_directory, embedding_function=EMBEDDING_FUNC)
 
 
 template = """Given the following chat history and a follow up question, rephrase the follow up input question to be a standalone question.
@@ -87,13 +85,14 @@ chatbot = ConversationalRetrievalChain(
 chat_history = []
 
 # gather user input for the first question to kick off the bot
-question = input("Hi! What are you looking for today?")
+question = input("Hi! What are you looking for today?\n")
 
 # keep the bot running in a loop to simulate a conversation
 while True:
     result = chatbot(
         {"question": question, "chat_history": chat_history}
     )
+    # print(chat_history)
     print("\n")
     chat_history.append((result["question"], result["answer"]))
     question = input()

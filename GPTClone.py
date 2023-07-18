@@ -1,64 +1,53 @@
 import langchain
 from langchain import OpenAI, LLMChain, PromptTemplate, SerpAPIWrapper, LLMMathChain, GoogleSearchAPIWrapper
-from langchain.chat_models import ChatOpenAI
-from langchain.memory import ConversationBufferMemory, ConversationBufferWindowMemory
+from langchain.memory import ConversationBufferMemory, ConversationSummaryMemory
 from langchain.agents import load_tools, initialize_agent, Tool, AgentType
 from langchain.callbacks import get_openai_callback
 
-from langchain.agents.agent_toolkits import create_python_agent
-from langchain.tools.python.tool import PythonAstREPLTool
-from langchain.python import PythonREPL
-
 import streamlit as st
-from dotenv import load_dotenv
-
-load_dotenv()
+from config import LLM, CHAT_LLM
 
 def main():
-    # st.set_page_config(page_title="OpenAI Chat")
-    # st.header("Ask a question 💬")
-    # user_question = st.text_input("Input text here....")
-    user_question="What is the 25% of 300?"
-    user_question="背诵随便一首唐诗"
-    user_question = "杭州今日的天气。用中文回答"
-    llm = ChatOpenAI(temperature=0)
-    llm2 = OpenAI(temperature=0)
+    st.set_page_config(page_title="OpenAI Chat with SerpAI")
+    st.header("Ask a question 💬")
+    user_question = st.text_input("Input text here....")
+    # user_question = "杭州今日的天气。用中文回答"
 
     if user_question:
+        llm_math_chain = LLMMathChain.from_llm(llm=LLM, verbose=True)
         search = SerpAPIWrapper(params={
             "engine": "google",
         })
-        llm_math_chain = LLMMathChain.from_llm(llm=llm, verbose=True)
         tools = [
             Tool(
                 name="search", 
                 func=search.run,
                 description="useful when you need to answer questions about current events. You should ask pointed questions"
             ),
-            # Tool(
-            #     name="Calculator",
-            #     func=llm_math_chain.run,
-            #     description="useful when you need to answer math questions"
-            # )
+            Tool(
+                name="Calculator",
+                func=llm_math_chain.run,
+                description="useful when you need to answer math questions"
+            )
         ]
-        tools.extend(load_tools(["llm-math"], llm=llm))
+        # tools.extend(load_tools(["llm-math"], llm=LLM))
 
         agent = initialize_agent(
             tools=tools,
-            llm=llm2,
+            llm=CHAT_LLM,
             agent=AgentType.ZERO_SHOT_REACT_DESCRIPTION,      # only one works
-            memory=ConversationBufferMemory(memory_key="chat_history"),
+            memory=ConversationSummaryMemory(memory_key="history", llm=LLM),
             handle_parsing_errors=True,
             verbose=True
         )
-        # agent.agent.llm_chain.prompt. += "Always reply in Chinese"
-        langchain.debug = True
-        print(agent.run(user_question))
-        langchain.debug = False
+        # langchain.debug = True
+        print(agent.run('用中文回答: ' + user_question))
+        # langchain.debug = False
 
-        # with get_openai_callback() as cb:
-        #     response = agent.run(user_question)
-        #     st.write(response)
+        with get_openai_callback() as cb:
+            response = agent.run(user_question)
+            print(cb)
+        st.write(response)
 
 main()
 

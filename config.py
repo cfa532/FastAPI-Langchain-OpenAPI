@@ -8,7 +8,7 @@ from langchain.chat_models import ChatOpenAI
 from dotenv import load_dotenv
 load_dotenv()
 
-MAX_TOKENS = 1000
+MAX_TOKENS = -1
 """The maximum number of tokens to generate in the completion.
     -1 returns as many tokens as possible given the prompt and
     the models maximal context size."""
@@ -19,5 +19,5 @@ CHROMA_WEB_CLIENT = chromadb.Client(Settings(chroma_api_impl="rest",
                                     ))
 
 LLM = OpenAI(temperature=0, max_tokens=MAX_TOKENS)
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-3.5-turbo")
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-3.5-turbo")     # ChatOpenAI cannot have max_token=-1
 EMBEDDING_FUNC = OpenAIEmbeddings()

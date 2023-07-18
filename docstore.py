@@ -2,7 +2,7 @@ import langchain
 from langchain.vectorstores import Chroma, FAISS
 from langchain import Wikipedia
 from langchain.chains import RetrievalQA
-# from langchain.docstore.base import Docstore
+from langchain.chains.question_answering import load_qa_chain
 from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
 from langchain.agents.react.base import DocstoreExplorer
@@ -37,9 +37,9 @@ def docstoreReactAgent(db, query:str, verbose=False)->str:
 # print(docstoreReactAgent(db="", query="案件名称？", verbose=True))
 def retrievalQAChain(db, query, verbose=False):
     LLM.verbose = verbose
-    qa = RetrievalQA.from_chain_type(
-        llm=LLM,
-        chain_type="refine",
+    qa_chain = load_qa_chain(LLM, chain_type="refine")
+    qa = RetrievalQA(
+        combine_documents_chain=qa_chain,
         retriever=db.as_retriever(),
     )
     return qa.run(query)
