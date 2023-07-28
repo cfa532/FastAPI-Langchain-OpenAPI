@@ -1,14 +1,15 @@
 import langchain
-from langchain.vectorstores import Chroma, FAISS
+# from langchain.vectorstores import Chroma, FAISS
 from langchain import Wikipedia
 from langchain.chains import RetrievalQA
 from langchain.chains.question_answering import load_qa_chain
 from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
 from langchain.agents.react.base import DocstoreExplorer
+from langchain.prompts import PromptTemplate
 from config import LLM, CHROMA_WEB_CLIENT, CHAT_LLM
 
-def docstoreReactAgent(db, query:str, verbose=False)->str:
+def docstoreReactAgent(db, query:str)->str:
     # db = Chroma(client=CHROMA_WEB_CLIENT, collection_name="law-docs")
     # docstore = DocstoreExplorer(db)
 
@@ -27,22 +28,33 @@ def docstoreReactAgent(db, query:str, verbose=False)->str:
             # find data within a document
         )
     ]
-    react = initialize_agent(tools, LLM, agent=AgentType.REACT_DOCSTORE, verbose=verbose)
+    react = initialize_agent(tools, LLM, agent=AgentType.REACT_DOCSTORE)
     # query = "反电信诈骗法的要点是什么？全部问题使用中文问答问题。"
     # langchain.debug = True
     res= react.run(query)
     # langchain.debug = False
     return res
 
-# print(docstoreReactAgent(db="", query="案件名称？", verbose=True))
-def retrievalQAChain(db, query, verbose=False):
-    LLM.verbose = verbose
+# print(docstoreReactAgent(db="", query="案件名称？"))
+def retrievalQAChain(db, query):
+    prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+
+    {context}
+
+    Question: {question}
+    Answer in Chinese with JSON format, use user question as key and your answer as value."""
+    PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
+    chain_type_kwargs = {"prompt": PROMPT}
     qa_chain = load_qa_chain(LLM, chain_type="refine")
     qa = RetrievalQA(
         combine_documents_chain=qa_chain,
         retriever=db.as_retriever(),
     )
-    return qa.run(query)
+    # qa = RetrievalQA.from_chain_type(LLM, chain_type="stuff", chain_type_kwargs=chain_type_kwargs, retriever=db.as_retriever(),)
+    # chain_type_kwargs only acceptable with STUFF chain. Validation error for RefineDocumentsChain prompt extra fields not permitted
+    res = qa({"query": query})
+    print(res)
+    return res["result"]
 
 # res = docstoreReactAgent("", "反电信诈骗法的要点是什么？")
 # print(res)

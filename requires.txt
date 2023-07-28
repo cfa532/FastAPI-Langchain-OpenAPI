@@ -9,6 +9,9 @@ wikipedia==1.4.0
 sentence_transformers==2.2.2
 pypdf==3.12.1
 docx2txt==0.8
+python-docx==0.8.11
 tiktoken==0.4.0
 PyPDF2==3.0.1
 textract==1.6.5
+waitress==2.1.2
+docx
