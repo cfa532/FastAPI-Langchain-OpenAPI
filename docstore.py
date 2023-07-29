@@ -42,7 +42,7 @@ def retrievalQAChain(db, query):
     {context}
 
     Question: {question}
-    Answer in Chinese with JSON format, use user question as key and your answer as value."""
+    Answer all questions in Chinese."""
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
     chain_type_kwargs = {"prompt": PROMPT}
     qa_chain = load_qa_chain(LLM, chain_type="refine")
