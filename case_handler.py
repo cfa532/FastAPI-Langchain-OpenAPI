@@ -24,3 +24,19 @@ def init_case(text):
     res["brief"] = retrievalQAChain(file_db, "案情简介？")
 
     return res
+
+def extract_text(file :FileStorage):
+    file_ext = os.path.splitext(file.filename)[1]
+    text = ""
+    if file_ext.lower()==".pdf":
+        text += load_pdf(file.read())
+        print("text=", text)
+    elif file_ext.lower()==".docx":
+        for line in docx.Document(file).paragraphs:
+            text += "\n"+line.text
+        print("text=", text)
+    elif file_ext.lower()==".txt":
+        for line in file.read().decode('utf8'):
+            print(line)
+            text += line
+    return text
