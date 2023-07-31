@@ -1,12 +1,36 @@
 from flask import Flask, render_template, request, make_response
 from case_handler import init_case, extract_text
+from flask_socketio import SocketIO, emit, send
+from flask_cors import CORS
 from config import print_object
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-app.config['UPLOAD_EXTENSIONS'] = ['.pdf', '.txt', '.docx']
-app.config['UPLOAD_PATH'] = 'uploads'
 app.debug = True
+
+app.config['SECRET_KEY'] = "secret!"
+CORS(app)
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# @socketio.on('connect')
+# def handle_chat(data):
+#     print(data)
+    # chat entrence here
+
+# @socketio.on('file')
+# def handle_upload(file):
+#     text = extract_text(file)
+#     text = init_case(text)
+#     resp = make_response(text)
+#     # resp.headers["Access-Control-Allow-Origin"] = '*'       # In request header, use {Mode: cors}
+#     # print_object(resp)
+#     return resp
+
+# @socketio.on("hello")
+# def sayHi(arg):
+#   print(arg); # "world"
+#   send("got it")
+
 
 @app.route('/')
 def hello_world():
@@ -26,5 +50,6 @@ def init():
     return resp
 
 if __name__=='__main__':
-    from waitress import serve
-    serve(app, host="0.0.0.0", port=5000)
+    # from waitress import serve
+    # serve(app, host="0.0.0.0", port=5000)
+    socketio.run(app)
