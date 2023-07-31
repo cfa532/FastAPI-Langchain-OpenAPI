@@ -10,7 +10,7 @@ app.debug = True
 
 app.config['SECRET_KEY'] = "secret!"
 CORS(app)
-socketio = SocketIO(app, cors_allowed_origins="*")
+socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.config['MAX_CONTENT_LENGTH'])
 
 # @socketio.on('connect')
 # def handle_chat(data):
@@ -26,11 +26,17 @@ socketio = SocketIO(app, cors_allowed_origins="*")
 #     # print_object(resp)
 #     return resp
 
-# @socketio.on("hello")
-# def sayHi(arg):
-#   print(arg); # "world"
-#   send("got it")
+@socketio.on("hello")
+def sayHi(arg):
+    print(arg); # "world"
+    # emit("Hi", {}, callback=ack)
 
+@socketio.on("init_case")
+def init_case(file):
+    print(file.name)
+
+def ack():
+    print('message was received!')
 
 @app.route('/')
 def hello_world():
@@ -49,7 +55,10 @@ def init():
     # print_object(resp)
     return resp
 
+def ack():
+    print('message was received!')
+
 if __name__=='__main__':
     # from waitress import serve
     # serve(app, host="0.0.0.0", port=5000)
-    socketio.run(app)
+    socketio.run(app, host='0.0.0.0', port=5000)
