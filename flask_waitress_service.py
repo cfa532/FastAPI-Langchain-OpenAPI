@@ -33,7 +33,8 @@ def sayHi(arg):
 
 @socketio.on("init_case")
 def init_case(file):
-    print(file.name)
+    text = extract_text(file)
+    print(text)
 
 def ack():
     print('message was received!')
