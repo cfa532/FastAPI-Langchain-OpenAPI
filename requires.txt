@@ -17,6 +17,7 @@ Flask
 Flask-Login
 Flask-Session
 Flask_SocketIO
+flask_cors
 itsdangerous
 Jinja2
 MarkupSafe

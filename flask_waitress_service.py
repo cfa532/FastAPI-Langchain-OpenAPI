@@ -1,8 +1,11 @@
 from flask import Flask, render_template, request, make_response
-from case_handler import init_case, extract_text
+# from case_handler import init_case, extract_text
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
-from config import print_object
+# from config import print_object
+import docx
+from werkzeug.datastructures import FileStorage
+from io import BytesIO, StringIO
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
@@ -32,9 +35,19 @@ def sayHi(arg):
     # emit("Hi", {}, callback=ack)
 
 @socketio.on("init_case")
-def init_case(file):
-    text = extract_text(file)
+def init_case(filename, obj):
+    # text = extract_text(file)
+    file = FileStorage(
+        stream=BytesIO(obj), 
+        filename="text.docx",
+        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
+        content_length=len(obj)
+    )
+    text = ""
+    for line in docx.Document(file).paragraphs:
+        text += "\n"+line.text
     print(text)
+    # print(file.decode())  # work for text, html 
 
 def ack():
     print('message was received!')
@@ -48,8 +61,7 @@ def init():
     # assume there is only one file
     file = request.files.getlist('file')[0]
     # get text content of the file
-
-    text = extract_text(file)
+    # text = extract_text(file)
     text = init_case(text)
     resp = make_response(text)
     resp.headers["Access-Control-Allow-Origin"] = '*'       # In request header, use {Mode: cors}
