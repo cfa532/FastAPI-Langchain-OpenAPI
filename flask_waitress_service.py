@@ -1,11 +1,12 @@
 from flask import Flask, render_template, request, make_response
-# from case_handler import init_case, extract_text
+# from case_handler import extract_text
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 # from config import print_object
-import docx
+import docx, os
 from werkzeug.datastructures import FileStorage
 from io import BytesIO, StringIO
+from ocr import load_pdf
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
@@ -35,17 +36,18 @@ def sayHi(arg):
     # emit("Hi", {}, callback=ack)
 
 @socketio.on("init_case")
-def init_case(filename, obj):
-    # text = extract_text(file)
+def init_case(filename, filetype, data):
+    print(filename, filetype)
     file = FileStorage(
-        stream=BytesIO(obj), 
-        filename="text.docx",
-        content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document', 
-        content_length=len(obj)
+        stream=BytesIO(data), 
+        filename=filename,
+        content_type=filetype, 
+        content_length=len(data)
     )
     text = ""
-    for line in docx.Document(file).paragraphs:
-        text += "\n"+line.text
+    text = extract_text(file)
+    # for line in docx.Document(file).paragraphs:
+        # text += "\n"+line.text
     print(text)
     # print(file.decode())  # work for text, html 
 
@@ -70,6 +72,22 @@ def init():
 
 def ack():
     print('message was received!')
+
+def extract_text(file :FileStorage):
+    file_ext = os.path.splitext(file.filename)[1]
+    text = ""
+    if file_ext.lower()==".pdf":
+        text += load_pdf(file.read())
+        print("text=", text)
+    elif file_ext.lower()==".docx":
+        for line in docx.Document(file).paragraphs:
+            text += "\n"+line.text
+        print("text=", text)
+    elif file_ext.lower()==".txt":
+        for line in file.read().decode('utf8'):
+            print(line)
+            text += line
+    return text
 
 if __name__=='__main__':
     # from waitress import serve
