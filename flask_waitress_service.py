@@ -5,7 +5,7 @@ from flask_cors import CORS
 # from config import print_object
 import docx, os
 from werkzeug.datastructures import FileStorage
-from io import BytesIO, StringIO
+from io import BytesIO
 from ocr import load_pdf
 
 app = Flask(__name__)
@@ -33,7 +33,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.conf
 @socketio.on("hello")
 def sayHi(arg):
     print(arg); # "world"
-    # emit("Hi", {}, callback=ack)
+    return {"status": "greata"}     # returned parameter to the callback defined in client
 
 @socketio.on("init_case")
 def init_case(filename, filetype, data):
@@ -46,9 +46,9 @@ def init_case(filename, filetype, data):
     )
     text = ""
     text = extract_text(file)
-    # for line in docx.Document(file).paragraphs:
-        # text += "\n"+line.text
     print(text)
+    socketio.emit("result", "successssssss")
+    return "success"
     # print(file.decode())  # work for text, html 
 
 def ack():
@@ -78,14 +78,14 @@ def extract_text(file :FileStorage):
     text = ""
     if file_ext.lower()==".pdf":
         text += load_pdf(file.read())
-        print("text=", text)
+        # print("text=", text)
     elif file_ext.lower()==".docx":
         for line in docx.Document(file).paragraphs:
             text += "\n"+line.text
-        print("text=", text)
+        # print("text=", text)
     elif file_ext.lower()==".txt":
         for line in file.read().decode('utf8'):
-            print(line)
+            # print(line)
             text += line
     return text
 
