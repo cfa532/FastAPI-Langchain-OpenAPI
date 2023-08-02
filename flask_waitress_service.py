@@ -47,12 +47,9 @@ def init_case(filename, filetype, data):
     text = ""
     text = extract_text(file)
     print(text)
-    socketio.emit("result", "successssssss")
-    return "success"
+    emit("result", {"result": "success", "title":"judege"})
+    return "succeed"
     # print(file.decode())  # work for text, html 
-
-def ack():
-    print('message was received!')
 
 @app.route('/')
 def hello_world():
@@ -69,9 +66,6 @@ def init():
     resp.headers["Access-Control-Allow-Origin"] = '*'       # In request header, use {Mode: cors}
     # print_object(resp)
     return resp
-
-def ack():
-    print('message was received!')
 
 def extract_text(file :FileStorage):
     file_ext = os.path.splitext(file.filename)[1]
