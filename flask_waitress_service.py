@@ -47,7 +47,7 @@ def init_case(filename, filetype, data):
     text = ""
     text = extract_text(file)
     print(text)
-    emit("result", {"result": "success", "title":"judege"})
+    emit("Done", {"title": "田产地头纠纷", "brief":"张三告李四多吃多占", "plaintiff":"张三", "defendant":"李四"})
     return "succeed"
     # print(file.decode())  # work for text, html 
 
