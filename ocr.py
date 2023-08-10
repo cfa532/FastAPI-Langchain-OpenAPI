@@ -1,6 +1,7 @@
-from tempfile import TemporaryDirectory
+from tempfile import TemporaryDirectory, NamedTemporaryFile
+# import textract
 import pytesseract
-from pdf2image import convert_from_bytes
+from pdf2image import convert_from_bytes, convert_from_path
 from PIL import Image
 
 # convert PDF page to image, then run OCR to recognize Simplified Chinese
@@ -17,3 +18,17 @@ def load_pdf(pdf):
             text += str(pytesseract.image_to_string(Image.open(img), lang="chi_sim"))
         text = text.replace("-\n", "").replace(" ", "")
         return text
+
+
+"""
+def load_doc(doc: bytes):
+    # does not work for DOC file
+    text = ""
+    temp = NamedTemporaryFile()
+    try:
+        temp.write(doc)
+        text = textract.process(temp.name)
+    finally:
+        temp.close()
+    return text
+"""
