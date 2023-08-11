@@ -1,12 +1,14 @@
 from tempfile import TemporaryDirectory, NamedTemporaryFile
 # import textract
-import pytesseract
+import pytesseract, os
 from pdf2image import convert_from_bytes, convert_from_path
 from PIL import Image
 
 # convert PDF page to image, then run OCR to recognize Simplified Chinese
 def load_pdf(pdf):
     # extract text from a pdf BYTEs object
+
+    os.environ["TESSDATA_PREFIX"]= os.getcwd() + "/tessdata"
     text = ""
     with TemporaryDirectory() as tempdir:
         # create temp dir to hold temporary images

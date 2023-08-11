@@ -3,10 +3,11 @@ from case_handler import extract_text, init_case
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 from config import print_object
+from init_vectordb import upsert_text
 
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
-app.debug = True
+app.debug = False
 
 app.config['SECRET_KEY'] = "secret!"
 CORS(app)
@@ -21,11 +22,18 @@ def sayHi(arg):
 def init(filename, filetype, filedata):
     print(filename, filetype)
     text = extract_text(filename, filetype, filedata)
-    text = init_case(text)
+    # text = init_case(text)
     print(text)
     emit("Done", {"title": "田产地头纠纷", "brief":"张三告李四多吃多占", "plaintiff":"张三", "defendant":"李四"})
-    return "succeed"
+    return "success"
     # print(file.decode())  # work for text, html 
+
+@socketio.on("upload_file")
+def upload(collection_name, filename, filetype, filedata):
+    print(filename, filetype)
+    text = extract_text(filename, filetype, filedata)
+    print(text[0:100])
+    return upsert_text(collection_name, text, filename)
 
 @app.route('/')
 def hello_world():

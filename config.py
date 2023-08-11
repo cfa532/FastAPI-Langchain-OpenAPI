@@ -18,6 +18,8 @@ VERBOSE = True
     the models maximal context size."""
 
 CHROMA_CLIENT = chromadb.HttpClient(host='localhost', port=8000)
+cols = CHROMA_CLIENT.list_collections()
+print(cols)
 
 LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=MAX_TOKENS, verbose=VERBOSE,)
 CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=MAX_TOKENS, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
