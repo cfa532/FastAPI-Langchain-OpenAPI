@@ -8,7 +8,7 @@ load_dotenv()
 
 embeddings = OpenAIEmbeddings()
 docsearch = chromadb.Client(settings={"chroma_api_impl":"rest",
-                                    "chroma_server_host":"localhost",
+                                    "chroma_server_host":"192.168.0.5",
                                     "chroma_server_http_port":"8000"})
 # docsearch = Chroma(persist_directory="db", embedding_function=embeddings)
 
