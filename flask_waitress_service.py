@@ -4,7 +4,10 @@ from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 from config import print_object
 from init_vectordb import upsert_text
+from docstore import docstoreReactAgent
+import os
 
+os.environ["TOKENIZERS_PARALLELISM"] = "false"
 app = Flask(__name__)
 app.config['MAX_CONTENT_LENGTH'] = 50 * 1024 * 1024
 app.debug = False
@@ -18,6 +21,10 @@ def sayHi(arg):
     print(arg); # "world"
     return {"status": "greata"}     # returned parameter to the callback defined in client
 
+@socketio.on("case_info")
+def case_info(collection_name:str, query:str):
+    return docstoreReactAgent(collection_name, query)
+
 @socketio.on("init_case")
 def init(filename, filetype, filedata):
     print(filename, filetype)
@@ -30,10 +37,10 @@ def init(filename, filetype, filedata):
 
 @socketio.on("upload_file")
 def upload(collection_name, filename, filetype, filedata):
-    print(filename, filetype)
+    print("Received file: ", filename, len(filedata))
     text = extract_text(filename, filetype, filedata)
-    print(text[0:100])
-    return upsert_text(collection_name, text, filename)
+    res =  upsert_text(collection_name, text, filename)
+    return res
 
 @app.route('/')
 def hello_world():
@@ -42,7 +49,7 @@ def hello_world():
 if __name__=='__main__':
     # from waitress import serve
     # serve(app, host="0.0.0.0", port=5000)
-    socketio.run(app, host='0.0.0.0', port=5000)
+    socketio.run(app, host='0.0.0.0', port=5050)
 
 
 

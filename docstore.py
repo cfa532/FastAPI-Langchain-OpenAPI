@@ -1,5 +1,5 @@
 import langchain
-# from langchain.vectorstores import Chroma, FAISS
+from langchain.vectorstores import Chroma, FAISS
 from langchain import Wikipedia
 from langchain.chains import RetrievalQA
 from langchain.chains.question_answering import load_qa_chain
@@ -7,18 +7,20 @@ from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
 from langchain.agents.react.base import DocstoreExplorer
 from langchain.prompts import PromptTemplate
-from config import LLM, CHROMA_WEB_CLIENT, CHAT_LLM
+from config import LLM, CHROMA_CLIENT, CHAT_LLM, EMBEDDING_FUNC
+from CaseInfo import CaseInfo
 
-def docstoreReactAgent(db, query:str)->str:
+def docstoreReactAgent(collection_name:str, query:str)->str:
+    collection_name = "5ACIVM0ewbQdqpgVtXhO3PW9QsJ"
     # db = Chroma(client=CHROMA_WEB_CLIENT, collection_name="law-docs")
     # docstore = DocstoreExplorer(db)
-
-    docstore = DocstoreExplorer(Wikipedia())     # only one that work is Wikipedia, which is a wrapper class.
+    print(collection_name, query)
+    docstore = DocstoreExplorer(CaseInfo(collection_name))     # only one that work is Wikipedia, which is a wrapper class.
     tools = [
         Tool(
             name="Search",
             func=docstore.search,
-            description="useful for when you need to ask with search",
+            description="useful when never you need to find information about anything",
             # given search term, find a document
         ),
         Tool(
@@ -28,15 +30,18 @@ def docstoreReactAgent(db, query:str)->str:
             # find data within a document
         )
     ]
-    react = initialize_agent(tools, LLM, agent=AgentType.REACT_DOCSTORE)
-    # query = "反电信诈骗法的要点是什么？全部问题使用中文问答问题。"
-    # langchain.debug = True
+    react = initialize_agent(tools, CHAT_LLM, agent=AgentType.REACT_DOCSTORE, verbose=True)
+    # query = "原告方基本信息"
+    langchain.debug = True
     res= react.run(query)
-    # langchain.debug = False
+    langchain.debug = False
+    print(res)
     return res
 
 # print(docstoreReactAgent(db="", query="案件名称？"))
-def retrievalQAChain(db, query):
+def retrievalQAChain(collection_name:str, query:str):
+    collection_name = "5ACIVM0ewbQdqpgVtXhO3PW9QsJ"
+    db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
     prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
     {context}
@@ -56,5 +61,5 @@ def retrievalQAChain(db, query):
     print(res)
     return res["result"]
 
-# res = docstoreReactAgent("", "反电信诈骗法的要点是什么？")
+# res = retrievalQAChain("", "查找原告方信息")
 # print(res)
