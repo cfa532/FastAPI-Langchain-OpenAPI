@@ -1,5 +1,5 @@
 import langchain
-from langchain.vectorstores import Chroma, FAISS
+from langchain.vectorstores.chroma import Chroma
 from langchain import Wikipedia
 from langchain.chains import RetrievalQA
 from langchain.chains.question_answering import load_qa_chain
@@ -41,6 +41,7 @@ def docstoreReactAgent(collection_name:str, query:str)->str:
 # print(docstoreReactAgent(db="", query="案件名称？"))
 def retrievalQAChain(collection_name:str, query:str):
     collection_name = "5ACIVM0ewbQdqpgVtXhO3PW9QsJ"
+    # Chroma.embeddings = EMBEDDING_FUNC
     db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
     prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
 
@@ -49,17 +50,30 @@ def retrievalQAChain(collection_name:str, query:str):
     Question: {question}
     Answer all questions in Chinese."""
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
-    chain_type_kwargs = {"prompt": PROMPT}
-    qa_chain = load_qa_chain(LLM, chain_type="refine")
-    qa = RetrievalQA(
-        combine_documents_chain=qa_chain,
-        retriever=db.as_retriever(),
-    )
-    # qa = RetrievalQA.from_chain_type(LLM, chain_type="stuff", chain_type_kwargs=chain_type_kwargs, retriever=db.as_retriever(),)
-    # chain_type_kwargs only acceptable with STUFF chain. Validation error for RefineDocumentsChain prompt extra fields not permitted
+
+    question_prompt = PromptTemplate(input_variables=['question', 'context'],
+        template="")
+
+    refine_prompt = PromptTemplate(input_variables=['question', 'existing_answer', 'context'], template="")
+
+    chain_type_kwargs = {"refine_prompt": PROMPT}
+    # qa_chain = load_qa_chain(LLM, chain_type="refine")
+    # qa = RetrievalQA(
+    #     combine_documents_chain=qa_chain,
+    #     retriever=db.as_retriever(),
+    # )
+    qa = RetrievalQA.from_chain_type(LLM, 
+                                     chain_type="refine",
+                                     retriever=db.as_retriever(),
+                                     chain_type_kwargs={
+                                        "question_prompt": question_prompt,
+                                        "refine_prompt" : refine_prompt
+                                    })
+    # chain_type_kwargs only acceptable 'prompt' for STUFF chain. 
+    # Refine chain accept more prompts: question_prompt, refine_prompt
     res = qa({"query": query})
     print(res)
     return res["result"]
 
-# res = retrievalQAChain("", "查找原告方信息")
-# print(res)
+res = retrievalQAChain("", "查找原告方信息")
+print(res)
