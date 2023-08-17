@@ -12,7 +12,7 @@ def load_pdf(pdf):
     text = ""
     with TemporaryDirectory() as tempdir:
         # create temp dir to hold temporary images
-        pdf_pages = convert_from_bytes(pdf, 200)
+        pdf_pages = convert_from_bytes(pdf, 500)
         # Read in the PDF file at 500 DPI
         for num, page in enumerate(pdf_pages, start=1):
             img = f"{tempdir}\page_{num:03}.jpg"

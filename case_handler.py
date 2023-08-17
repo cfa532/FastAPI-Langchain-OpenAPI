@@ -1,5 +1,4 @@
 import langchain, docx, re, os
-from langchain import FAISS
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.chroma import Chroma
 from werkzeug.datastructures import FileStorage

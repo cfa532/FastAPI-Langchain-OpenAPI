@@ -5,7 +5,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.chroma import Chroma
 # from langchain.callbacks import get_openai_callback
 
-from config import CHROMA_WEB_CLIENT, EMBEDDING_FUNC
+from config import CHROMA_CLIENT, EMBEDDING_FUNC
 from docstore import docstoreReactAgent, retrievalQAChain
 from ocr import load_pdf
 

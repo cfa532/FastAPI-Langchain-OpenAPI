@@ -11,7 +11,6 @@ from pprint import pprint
 from dotenv import load_dotenv
 load_dotenv()
 
-MAX_TOKENS = 512
 VERBOSE = True
 
 """The maximum number of tokens to generate in the completion.
@@ -24,8 +23,8 @@ cols = CHROMA_CLIENT.list_collections()
 print(cols)
 # CHROMA_CLIENT.reset()
 
-LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=MAX_TOKENS, verbose=VERBOSE,)
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=MAX_TOKENS, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
+LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=-1, verbose=VERBOSE,)
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=512, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
 
 # EMBEDDING_FUNC = OpenAIEmbeddings()
 # EMBEDDING_FUNC = DefaultEmbeddingFunction()
