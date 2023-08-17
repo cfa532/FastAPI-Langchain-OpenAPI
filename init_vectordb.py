@@ -25,7 +25,7 @@ def init_case_store(collection_name: str, dir:str):
     from os import walk
     import PyPDF2
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
-    db = CHROMA_CLIENT.get_or_create_collection(collection_name)
+    db = CHROMA_CLIENT.get_or_create_collection(collection_name, embedding_function=EMBEDDING_FUNC)
     print(db.peek(3))
 
     # load all files in a folder
@@ -49,7 +49,7 @@ def init_case_store(collection_name: str, dir:str):
 
         for i, t in enumerate(chunks, start=1):
             db.add(
-                embeddings = EMBEDDING_FUNC.embed_query(t),
+                # embeddings = EMBEDDING_FUNC.embed_query(t),
                 documents=[t],
                 metadatas=[{"source": fn, "类别":"案例"}],
                 ids=[fn+'-'+str(i)]
