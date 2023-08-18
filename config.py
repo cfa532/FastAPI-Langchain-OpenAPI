@@ -21,6 +21,8 @@ CHROMA_CLIENT = chromadb.HttpClient(host='localhost', port=8000)
 LAW_COLLECTION_NAME = "law-docs"     # collection name for all public laws and regulations
 cols = CHROMA_CLIENT.list_collections()
 print(cols)
+# cols = CHROMA_CLIENT.get_collection("5ACIVM0ewbQdqpgVtXhO3PW9QsJ")
+# print(cols.peek(1))
 # CHROMA_CLIENT.reset()
 
 LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=-1, verbose=VERBOSE,)
