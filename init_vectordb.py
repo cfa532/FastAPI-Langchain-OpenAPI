@@ -5,7 +5,7 @@ from chromadb.api.models.Collection import Collection
 
 def upsert_text(collection:Collection, text:str, filename:str):
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=300, chunk_overlap=30, separators=['.', '\n\n', '\n', ',', '。','，'])
     try:
         chunks = text_splitter.split_text(text)
         print("chunks:", len(chunks))
@@ -65,5 +65,5 @@ def init_case_store(collection_name: str, dir:str):
         #                       )
 
 
-# init_case_store("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "/Users/cfa532/Downloads/aji/")
+init_case_store("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "/Users/cfa532/Downloads/aji/")
 # init_case_store("law-docs", "/Users/cfa532/Downloads/aji/")

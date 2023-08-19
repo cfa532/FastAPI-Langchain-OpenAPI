@@ -1,7 +1,7 @@
 import langchain
 from langchain.vectorstores.chroma import Chroma
 from langchain import Wikipedia
-from langchain.chains import RetrievalQA
+from langchain.chains import RetrievalQA, RetrievalQAWithSourcesChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
@@ -56,6 +56,7 @@ def retrievalQAChain(collection_name:str, query:str):
     qa = RetrievalQA.from_chain_type(CHAT_LLM, 
                                     chain_type="stuff",
                                     retriever=db.as_retriever(),
+                                    return_source_documents=True,
                                     chain_type_kwargs = {"prompt": PROMPT},
                                     #  chain_type_kwargs={
                                     #     "question_prompt": question_prompt,
@@ -69,4 +70,5 @@ def retrievalQAChain(collection_name:str, query:str):
     return res["result"]
 
 res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "find plaintiff's name.")
-print(res)
+# res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "find defendant's name.")
+# res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "Tell me what the plaintiff is suing for.")
