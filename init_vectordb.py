@@ -6,25 +6,28 @@ from chromadb.api.models.Collection import Collection
 def upsert_text(collection:Collection, text:str, filename:str):
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
-    # try:
-    chunks = text_splitter.split_text(text)
-    print("chunks:", len(chunks))
-    for i,t in enumerate(chunks, start=1):
-        collection.upsert(
-            embeddings = [EMBEDDING_FUNC.embed_query(t)],  # if using OpenAIEmbedding, do not need [0]
-            documents = [t],
-            metadatas = [{"source": filename, "类别":"案列"}],
-            ids = [filename+'-'+str(i)]
-        )
-    # except Exception:
-    #     print("upload error on ", Exception)
-    # return "success"
+    try:
+        chunks = text_splitter.split_text(text)
+        print("chunks:", len(chunks))
+        for i,t in enumerate(chunks, start=1):
+            collection.upsert(
+                embeddings = [EMBEDDING_FUNC.embed_query(t)],  # if using OpenAIEmbedding, do not need [0]
+                documents = [t],
+                metadatas = [{"source": filename, "类别":"案列"}],
+                ids = [filename+'-'+str(i)]
+            )
+    except Exception as e:
+        print("upload error on ", type(e))
+        print(e.args)
+        print(e)
+        raise SystemExit(1)
+    return "success"
 
 def init_case_store(collection_name: str, dir:str):
     import docx, re
     from ocr import load_pdf
     from os import walk
-    import PyPDF2
+
     # vectorstore = Chroma(collection_name=collection_name,
     #                      embedding_function=EMBEDDING_FUNC,
     #                      client=CHROMA_CLIENT
@@ -49,12 +52,13 @@ def init_case_store(collection_name: str, dir:str):
         
         print(text[:100])
     
-        db = CHROMA_CLIENT.get_or_create_collection(collection_name)
-        upsert_text(db, text, fn)
+        cols = CHROMA_CLIENT.get_or_create_collection(collection_name)
+        upsert_text(cols, text, fn)
 
         # chunks = []
         # chunks.extend(text_splitter.split_text(text))
         # print("chunks:", len(chunks))
+
         # vectorstore.add_texts(chunks,     # breaks when there are many chunks, such as 53
         #                       [{"source": fn, "类别":"案例"}]*len(chunks),
         #                       list(map(lambda x:fn+'-'+str(x), list(range(1,len(chunks)+1))))
@@ -62,4 +66,4 @@ def init_case_store(collection_name: str, dir:str):
 
 
 # init_case_store("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "/Users/cfa532/Downloads/aji/")
-init_case_store("law-docs", "/Users/cfa532/Downloads/aji/")
+# init_case_store("law-docs", "/Users/cfa532/Downloads/aji/")

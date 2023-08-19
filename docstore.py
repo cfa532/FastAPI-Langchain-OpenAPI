@@ -11,7 +11,6 @@ from config import LLM, CHROMA_CLIENT, CHAT_LLM, EMBEDDING_FUNC
 from CaseInfo import CaseInfo
 
 def docstoreReactAgent(collection_name:str, query:str)->str:
-    collection_name = "5ACIVM0ewbQdqpgVtXhO3PW9QsJ"
     # db = Chroma(client=CHROMA_WEB_CLIENT, collection_name="law-docs")
     # docstore = DocstoreExplorer(db)
     print(collection_name, query)
@@ -40,40 +39,34 @@ def docstoreReactAgent(collection_name:str, query:str)->str:
 
 # print(docstoreReactAgent(db="", query="案件名称？"))
 def retrievalQAChain(collection_name:str, query:str):
-    collection_name = "5ACIVM0ewbQdqpgVtXhO3PW9QsJ"
     # Chroma.embeddings = EMBEDDING_FUNC
     db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
-    prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, don't try to make up an answer.
+    prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, leave the answer blank.
 
     {context}
 
     Question: {question}
-    Answer all questions in Chinese."""
+    Give me an answer as specific and concise as possible. Answer all questions in Chinese."""
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
-
-    question_prompt = PromptTemplate(input_variables=['question', 'context'],
-        template="")
-
-    refine_prompt = PromptTemplate(input_variables=['question', 'existing_answer', 'context'], template="")
-
-    chain_type_kwargs = {"refine_prompt": PROMPT}
     # qa_chain = load_qa_chain(LLM, chain_type="refine")
     # qa = RetrievalQA(
     #     combine_documents_chain=qa_chain,
     #     retriever=db.as_retriever(),
     # )
-    qa = RetrievalQA.from_chain_type(LLM, 
-                                     chain_type="refine",
-                                     retriever=db.as_retriever(),
-                                     chain_type_kwargs={
-                                        "question_prompt": question_prompt,
-                                        "refine_prompt" : refine_prompt
-                                    })
+    qa = RetrievalQA.from_chain_type(CHAT_LLM, 
+                                    chain_type="stuff",
+                                    retriever=db.as_retriever(),
+                                    chain_type_kwargs = {"prompt": PROMPT},
+                                    #  chain_type_kwargs={
+                                    #     "question_prompt": question_prompt,
+                                    #     "refine_prompt" : refine_prompt
+                                    # },
+                                    )
     # chain_type_kwargs only acceptable 'prompt' for STUFF chain. 
     # Refine chain accept more prompts: question_prompt, refine_prompt
     res = qa({"query": query})
     print(res)
     return res["result"]
 
-res = retrievalQAChain("", "查找原告方信息")
+res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "find plaintiff's name.")
 print(res)

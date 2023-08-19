@@ -25,7 +25,7 @@ print(cols)
 # print(cols.peek(1))
 # CHROMA_CLIENT.reset()
 
-LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=-1, verbose=VERBOSE,)
+LLM = OpenAI(temperature=0, model="gpt-3.5-turbo", max_tokens=-1, verbose=VERBOSE,)
 CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=512, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
 
 # EMBEDDING_FUNC = OpenAIEmbeddings()
