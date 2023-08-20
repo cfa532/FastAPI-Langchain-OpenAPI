@@ -1,13 +1,12 @@
 import langchain
 from langchain.vectorstores.chroma import Chroma
-from langchain import Wikipedia
-from langchain.chains import RetrievalQA, RetrievalQAWithSourcesChain
+from langchain.chains import RetrievalQA, SimpleSequentialChain, LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
 from langchain.agents.react.base import DocstoreExplorer
 from langchain.prompts import PromptTemplate
-from config import LLM, CHROMA_CLIENT, CHAT_LLM, EMBEDDING_FUNC
+from config import LLM, CHROMA_CLIENT, CHAT_LLM, EMBEDDING_FUNC, VERBOSE
 from CaseInfo import CaseInfo
 
 def docstoreReactAgent(collection_name:str, query:str)->str:
@@ -39,14 +38,20 @@ def docstoreReactAgent(collection_name:str, query:str)->str:
 
 # print(docstoreReactAgent(db="", query="案件名称？"))
 def retrievalQAChain(collection_name:str, query:str):
-    # Chroma.embeddings = EMBEDDING_FUNC
+    # format question
     db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
-    prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, leave the answer blank.
+    prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say that you don't know, leave the answer blank. 
 
     {context}
 
     Question: {question}
-    Give me an answer as specific and concise as possible. Answer all questions in Chinese."""
+    Examples:
+    SYSTEM: the answers are plaintiff is Cisco Co., and defendant is Goo Ltd.
+    OUTPUT: {{plaintiff: Cisco Co., defendant:Goo Ltd.}}
+
+    Answer all questions in Chinese and export result in JSON format as the examples, use keyword in the question
+    as KEY and result as VALUE in the JSON output"""
+
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
     # qa_chain = load_qa_chain(LLM, chain_type="refine")
     # qa = RetrievalQA(
@@ -54,22 +59,34 @@ def retrievalQAChain(collection_name:str, query:str):
     #     retriever=db.as_retriever(),
     # )
     # 
-    qa = RetrievalQA.from_chain_type(CHAT_LLM, 
-                                    chain_type="stuff",
-                                    retriever=db.as_retriever(),
-                                    return_source_documents=True,
-                                    chain_type_kwargs = {"prompt": PROMPT},
-                                    #  chain_type_kwargs={
-                                    #     "question_prompt": question_prompt,
-                                    #     "refine_prompt" : refine_prompt
-                                    # },
-                                    )
+    qa = RetrievalQA.from_chain_type(
+        CHAT_LLM, 
+        chain_type="stuff",
+        retriever=db.as_retriever(),
+        # return_source_documents=True,
+        chain_type_kwargs = {"prompt": PROMPT},
+        #  chain_type_kwargs={
+        #     "question_prompt": question_prompt,
+        #     "refine_prompt" : refine_prompt
+        # },
+        )
     # chain_type_kwargs only acceptable 'prompt' for STUFF chain. 
     # Refine chain accept more prompts: question_prompt, refine_prompt
-    res = qa({"query": query})
-    print(res)
-    return res["result"]
 
-res = retrievalQAChain("huggingface", "查找被告名称?")
+    format_query_chain = LLMChain(
+        llm=CHAT_LLM,
+        prompt=PromptTemplate(
+            input_variables=["query"],
+            # template="refine the following question, {query}"),
+            template="refine the following question in Chinese, {query}"),
+        # verbose=VERBOSE
+    )
+    res = format_query_chain.run(query)
+
+    # return res["result"]
+    res = qa({"query": res})
+    print(res)
+
+res = retrievalQAChain("huggingface", "根据所提供资料，分别确定原告方及被告名称")
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "refine my question below. \n\n find full name of the defendant")
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "Tell me what the plaintiff is suing for.")

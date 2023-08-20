@@ -55,7 +55,8 @@ def init_case_store(collection_name: str, dir:str):
         print(text[:100])
     
         cols = CHROMA_CLIENT.get_or_create_collection(collection_name)
-        upsert_text(cols, text, fn)
+        # attach file name in the front and behind text. 
+        upsert_text(cols, fn+"。 "+text+"。 "+fn, fn)
 
         # chunks = []
         # chunks.extend(text_splitter.split_text(text))
