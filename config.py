@@ -4,7 +4,7 @@ from langchain.chat_models import ChatOpenAI
 from langchain.embeddings import SentenceTransformerEmbeddings
 # from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 # from langchain.embeddings.openai import OpenAIEmbeddings
-# from langchain.embeddings import HuggingFaceInstructEmbeddings
+from langchain.embeddings import HuggingFaceInstructEmbeddings
 
 # Init environment variables in .env file
 from pprint import pprint
@@ -30,8 +30,8 @@ CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=512, verbose=VERB
 
 # EMBEDDING_FUNC = OpenAIEmbeddings()
 # EMBEDDING_FUNC = DefaultEmbeddingFunction()
-# EMBEDDING_FUNC = HuggingFaceInstructEmbeddings()
-EMBEDDING_FUNC = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+# EMBEDDING_FUNC = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
+EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
 
 def print_object(obj):
     pprint(vars(obj))

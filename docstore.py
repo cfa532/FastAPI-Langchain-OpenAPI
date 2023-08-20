@@ -53,6 +53,7 @@ def retrievalQAChain(collection_name:str, query:str):
     #     combine_documents_chain=qa_chain,
     #     retriever=db.as_retriever(),
     # )
+    # 
     qa = RetrievalQA.from_chain_type(CHAT_LLM, 
                                     chain_type="stuff",
                                     retriever=db.as_retriever(),
@@ -69,6 +70,6 @@ def retrievalQAChain(collection_name:str, query:str):
     print(res)
     return res["result"]
 
-res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "find plaintiff's name.")
-# res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "find defendant's name.")
+res = retrievalQAChain("huggingface", "查找被告名称?")
+# res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "refine my question below. \n\n find full name of the defendant")
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "Tell me what the plaintiff is suing for.")
