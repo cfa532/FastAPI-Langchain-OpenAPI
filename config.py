@@ -24,9 +24,10 @@ print(cols)
 # cols = CHROMA_CLIENT.get_collection("5ACIVM0ewbQdqpgVtXhO3PW9QsJ")
 # print(cols.peek(1))
 # CHROMA_CLIENT.reset()
+# CHROMA_CLIENT.delete_collection("law-docs")
 
 LLM = OpenAI(temperature=0, model="gpt-3.5-turbo", max_tokens=-1, verbose=VERBOSE,)
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-3.5-turbo", max_tokens=512, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
 
 # EMBEDDING_FUNC = OpenAIEmbeddings()
 # EMBEDDING_FUNC = DefaultEmbeddingFunction()

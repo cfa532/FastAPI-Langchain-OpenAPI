@@ -2,11 +2,12 @@ from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTex
 from langchain.vectorstores import Chroma
 from config import CHROMA_CLIENT, EMBEDDING_FUNC, print_object
 from chromadb.api.models.Collection import Collection
+import os, shutil
 
-def upsert_text(collection:Collection, text:str, filename:str):
+def upsert_text(collection:Collection, text:str, filename:str, chunk_size=1000, chunk_overlap=100, doc_type="law"):
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
-    from langchain.text_splitter import NLTKTextSplitter
-    text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
+    # from langchain.text_splitter import NLTKTextSplitter
+    text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=['.', '\n\n', '\n', ',', '。','，'])
     # text_splitter = NLTKTextSplitter()
     try:
         chunks = text_splitter.split_text(text)
@@ -15,7 +16,7 @@ def upsert_text(collection:Collection, text:str, filename:str):
             collection.upsert(
                 embeddings = [EMBEDDING_FUNC.embed_query(t)],  # if using OpenAIEmbedding, do not need [0]
                 documents = [t],
-                metadatas = [{"source": filename, "类别":"案列"}],
+                metadatas = [{"source": filename, "type":doc_type}],
                 ids = [filename+'-'+str(i)]
             )
     except Exception as e:
@@ -25,38 +26,45 @@ def upsert_text(collection:Collection, text:str, filename:str):
         raise SystemExit(1)
     return "success"
 
-def init_case_store(collection_name: str, dir:str):
+def init_case_store(collection_name: str, dir:str, size:int, overlap:int, doc_type="law"):
     import docx, re
     from ocr import load_pdf
     from os import walk
+    if not os.path.exists(dir + "loaded"): os.mkdir(dir + "loaded")
 
     # vectorstore = Chroma(collection_name=collection_name,
     #                      embedding_function=EMBEDDING_FUNC,
     #                      client=CHROMA_CLIENT
     #                      )
+    cols = CHROMA_CLIENT.get_or_create_collection(collection_name)
 
     # load all files in a folder
     for fn in next(walk(dir), (None, None, []))[2]:  # [] if no file
         text = ""
         if re.search("\.pdf$", fn):
             print("Reading:", fn)
-            text += load_pdf(open(dir+fn, 'rb').read())
+            fo = open(dir+fn, "rb")
+            text += load_pdf(fo.read())
         elif re.search("\.docx$", fn):
             print("Reading:", fn)
             for line in docx.Document(dir+fn).paragraphs:
                 text += "\n"+line.text
         elif re.search("\.txt$", fn):
             print("Reading:", fn)
-            for line in open(dir+fn).readlines():
+            fo = open(dir+fn)
+            for line in fo.readlines():
                 text += line
         else:
             continue
         
         print(text[:100])
     
-        cols = CHROMA_CLIENT.get_or_create_collection(collection_name)
         # attach file name in the front and behind text. 
-        upsert_text(cols, fn+"。 "+text+"。 "+fn, fn)
+        upsert_text(cols, fn+"。 "+text+"。 "+fn, fn, size, overlap, doc_type)
+
+        # move the file to other folder once it is done
+        if fo: fo.close()
+        shutil.move(dir+fn, dir+"loaded")
 
         # chunks = []
         # chunks.extend(text_splitter.split_text(text))
@@ -69,5 +77,5 @@ def init_case_store(collection_name: str, dir:str):
 
 
 # init_case_store("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "/Users/cfa532/Downloads/aji/")
-init_case_store("huggingface", "/Users/cfa532/Downloads/aji/")
-# init_case_store("law-docs", "/Users/cfa532/Downloads/aji/")
+# init_case_store("huggingface", "/Users/cfa532/Downloads/aji/",1000,100,"case")
+init_case_store("law-docs", "/Users/cfa532/Downloads/law/", 300, 30, "law")
