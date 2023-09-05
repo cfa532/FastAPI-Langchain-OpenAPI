@@ -1,7 +1,9 @@
 import chromadb
 from langchain.llms import OpenAI
 from langchain.chat_models import ChatOpenAI
-from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain.prompts import PromptTemplate
+from langchain.chains import LLMChain
+# from langchain.embeddings import SentenceTransformerEmbeddings
 # from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 # from langchain.embeddings.openai import OpenAIEmbeddings
 from langchain.embeddings import HuggingFaceInstructEmbeddings
@@ -36,3 +38,8 @@ EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl"
 
 def print_object(obj):
     pprint(vars(obj))
+
+def llm_chain(query:str):
+    return LLMChain(llm=LLM, prompt=PromptTemplate.from_template("{query}"),
+        # verbose=VERBOSE
+    ).run(query)

@@ -6,7 +6,7 @@ from langchain.agents import initialize_agent, Tool
 from langchain.agents import AgentType
 from langchain.agents.react.base import DocstoreExplorer
 from langchain.prompts import PromptTemplate
-from config import LLM, CHROMA_CLIENT, CHAT_LLM, EMBEDDING_FUNC, VERBOSE, LAW_COLLECTION_NAME
+from config import LLM, CHROMA_CLIENT, CHAT_LLM, EMBEDDING_FUNC, VERBOSE, llm_chain
 from CaseInfo import CaseInfo
 
 from langchain.retrievers.multi_query import MultiQueryRetriever
@@ -56,12 +56,6 @@ def retrievalQAChain(collection_name:str, query:str):
     as KEY and result as VALUE in the JSON output"""
 
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
-    # qa_chain = load_qa_chain(LLM, chain_type="refine")
-    # qa = RetrievalQA(
-    #     combine_documents_chain=qa_chain,
-    #     retriever=db.as_retriever(),
-    # )
-    # 
     qa = RetrievalQA.from_chain_type(
         CHAT_LLM, 
         chain_type="stuff",
@@ -78,6 +72,7 @@ def retrievalQAChain(collection_name:str, query:str):
 
     res = qa({"query": llm_chain("refine the following question in Chinese," + query)})
     print(res)
+    return res
 
 # res = retrievalQAChain("huggingface", "根据所提供资料，分别确定原告方及被告的基本信息。如当事人是公民（自然人），应写明姓名、性别、民族、出生年月日、住址、身份证号码、联系方式；当事人如是机关、团体、企事业单位，则写明名称、地址、统一社会信用代码、法定代表人姓名、职务")
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "refine my question below. \n\n find full name of the defendant")
@@ -85,12 +80,12 @@ def retrievalQAChain(collection_name:str, query:str):
 
 def getRequest(collection_name:str, query:str, temperature=0.5):
     db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
-    prompt_temp = """Given the plaintiff 杭州阿家 and defendant 杭州栖溪. Use the following pieces of context to answer question at the end. If you don't know the answer, just say nothing and leave the answer blank. 
+    prompt_temp = """Given the plaintiff 杭州阿家 and defendant 杭州栖溪. Use the following pieces of context to answer question at the end. If you don't know the answer, just say nothing and leave the answer blank. Try to find more than a couple of faults of the defendant.
 
     {context}
 
     Question: {question}
-    Answer all questions in Chinese. Try to find more than a couple of faults of the defendant."""
+    Answer all questions in Chinese."""
 
     # Export result in JSON format. Using "FACT" as key to indicate fact and "REQUEST" as key to indicate the corresponding compensation request.
     # Example:
@@ -112,15 +107,6 @@ def getRequest(collection_name:str, query:str, temperature=0.5):
 
 # getRequest("huggingface", "列举杭州栖溪对杭州阿家造成的经济损失事实，并且提出合理的诉讼请求。")
 
-def llm_chain(query:str):
-    return LLMChain(
-        llm=CHAT_LLM,
-        prompt=PromptTemplate(
-            input_variables=["query"],
-            template="{query}"),
-        # verbose=VERBOSE
-    ).run(query)
-
 def getSubTask(query:str):
     return llm_chain("Seperate the following text into list of wrong doings by the defendant. Export the content in an array. Quote the original text directly." + query)
     # return llm_chain("把下文中杭州栖溪对杭州阿家造成损失的事实逐条列印出来，使用原文内容即可。 " + query)
@@ -129,10 +115,11 @@ res = '答：根据原告杭州阿家的陈述，被告杭州栖溪对其造成�
 
 # subtasks = getSubTask(res)
 
-def getEvidence(query:str):
+def getLawDocs(query:str):
     # check Law database to find supporting materials for the point
-    db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)
-    prompt_temp = """Given the plaintiff 杭州阿家 and defendant 杭州栖溪, elaborate your argument in greater details, and use the following pieces of context to find materials that supporting your argument. If nothing is found, just leave the answer blank. 
+    
+    db = Chroma(client=CHROMA_CLIENT, collection_name='huggingface', embedding_function=EMBEDDING_FUNC)
+    prompt_temp = """ use the following pieces of context. If nothing is found, just leave the answer blank. 
 
     {context}
 
@@ -158,5 +145,6 @@ def getEvidence(query:str):
     print(res)
 
 res = '杭州栖溪在双方签署《店铺租赁合同》之后，未取得规划等手续违法搭建了巨大的天桥，影响了阿家公司的正常经营，导致阿家无法正常使用租赁房屋，进而导致解除合同。'
-# getEvidence(res)
-print(llm_chain("展开讨论下述问题。具体分析杭州栖溪对阿家公司造成的影响，应负担何种责任。应收集何种证据，如何收集。" +res))
+# print(llm_chain("下述问题会涉及到哪几部相关法律？" +res))
+# print(llm_chain("从中华人民共和国合同法，中华人民共和国房地产管理法，中华人民共和国侵权责任法。引用与下述问题相关的条例以支持原告阿家的诉求。" +res))
+# getLawDocs("查询中华人民共和国国民经济和社会发展第十个五年相关的内容。")

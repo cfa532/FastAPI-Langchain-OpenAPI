@@ -4,12 +4,13 @@ from config import CHROMA_CLIENT, EMBEDDING_FUNC, print_object
 from chromadb.api.models.Collection import Collection
 import os, shutil
 
-def upsert_text(collection:Collection, text:str, filename:str, chunk_size=1000, chunk_overlap=100, doc_type="law"):
+def upsert_text(collection_name:str, text:str, filename:str, chunk_size=1000, chunk_overlap=100, doc_type="law"):
     # text_splitter = CharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
     # from langchain.text_splitter import NLTKTextSplitter
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=['.', '\n\n', '\n', ',', '。','，'])
     # text_splitter = NLTKTextSplitter()
     try:
+        collection = CHROMA_CLIENT.get_or_create_collection(collection_name)
         chunks = text_splitter.split_text(text)
         print("chunks:", len(chunks))
         for i,t in enumerate(chunks, start=1):
@@ -36,7 +37,6 @@ def init_case_store(collection_name: str, dir:str, size:int, overlap:int, doc_ty
     #                      embedding_function=EMBEDDING_FUNC,
     #                      client=CHROMA_CLIENT
     #                      )
-    cols = CHROMA_CLIENT.get_or_create_collection(collection_name)
 
     # load all files in a folder
     for fn in next(walk(dir), (None, None, []))[2]:  # [] if no file
@@ -60,7 +60,7 @@ def init_case_store(collection_name: str, dir:str, size:int, overlap:int, doc_ty
         print(text[:100])
     
         # attach file name in the front and behind text. 
-        upsert_text(cols, fn+"。 "+text+"。 "+fn, fn, size, overlap, doc_type)
+        upsert_text(collection_name, fn+"。 "+text+"。 "+fn, fn, size, overlap, doc_type)
 
         # move the file to other folder once it is done
         if fo: fo.close()
@@ -78,4 +78,4 @@ def init_case_store(collection_name: str, dir:str, size:int, overlap:int, doc_ty
 
 # init_case_store("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "/Users/cfa532/Downloads/aji/")
 # init_case_store("huggingface", "/Users/cfa532/Downloads/aji/",1000,100,"case")
-init_case_store("law-docs", "/Users/cfa532/Downloads/law/", 300, 30, "law")
+# init_case_store("law-docs", "/Users/cfa532/Downloads/law/", 300, 30, "law")
