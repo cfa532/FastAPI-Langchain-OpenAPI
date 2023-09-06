@@ -1,9 +1,11 @@
 from flask import Flask, render_template, request, make_response
-from case_handler import extract_text, init_case
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 from init_vectordb import upsert_text
-import os
+from langchain.vectorstores.chroma import Chroma
+from case_handler import init_case, get_JSON_output, get_request, get_argument
+from init_vectordb import extract_text
+from config import CHROMA_CLIENT, EMBEDDING_FUNC
 
 # os.environ["TOKENIZERS_PARALLELISM"] = "false"
 app = Flask(__name__)
@@ -22,38 +24,41 @@ def sayHi(arg):
 # given a file to extract basic information of a case, such as plaintiff and defendent
 @socketio.on("init_case")
 def init(filename, filetype, filedata):
-    print(filename, filetype)
+    print("Init case:", filename, filetype)
     text = extract_text(filename, filetype, filedata)
     res, query = init_case(text)
-    print(res, query)
-    emit("Done", {"title": "田产地头纠纷", "brief":"张三告李四多吃多占", "plaintiff":"张三", "defendant":"李四"})
-    return "success"
-    # print(file.decode())  # work for text, html 
+    print(res, query)   # AI result and refined query
+    # emit("Done", {"title": "田产地头纠纷", "brief":"张三告李四多吃多占", "plaintiff":"张三", "defendant":"李四"})
+    return res
 
+# query case documents to figure basic informations about involved parties.
+# Always return the result and refined query
 @socketio.on("case_info")
 def case_info(collection_name:str, query:str):
-    # query case documents to figure basic informations about involved parties.
-    query = "根据所提供资料，分别确定原告方及被告的基本信息。如当事人是公民（自然人），应写明姓名、性别、民族、出生年月日、住址、身份证号码、联系方式；当事人如是机关、团体、企事业单位，则写明名称、地址、统一社会信用代码、法定代表人姓名、职务"
-    print("case info query: ", query)
-    return "Get it: "+ query
+    db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
+    # query = "根据所提供资料，分别确定原告方及被告的基本信息。如当事人是公民（自然人），应写明姓名、性别、民族、出生年月日、住址、身份证号码、联系方式；当事人如是机关、团体、企事业单位，则写明名称、地址、统一社会信用代码、法定代表人姓名、职务"
+    res, query = get_JSON_output(db, query)
+    print("Basic info: ", query, res)
+    return res, query
 
 @socketio.on("case_request")
 def case_request(collection_name:str, query:str):
-    # query case documents to figure basic informations about involved parties.
-    print("case info query: ", query)
-    return "Get it: "+ query
+    res, query = get_request(collection_name, query, 0.5)
+    print("Request: ", res, query)
+    return res, query
 
 @socketio.on("case_argument")
 def case_argument(collection_name:str, query:str):
-    # query case documents to figure basic informations about involved parties.
-    print("case info query: ", query)
-    return "Get it: "+ query
+    res, query = get_argument(collection_name, query)
+    print("Argument: ", res, query)
+    return res, query
 
+# Upload a file from web client
 @socketio.on("upload_file")
-def upload(collection_name, filename, filetype, filedata):
+def upload(collection_name, case_name, filename, filetype, filedata):
     print("Received file: ", filename, len(filedata))
     text = extract_text(filename, filetype, filedata)
-    res =  upsert_text(collection_name, text, filename)
+    res =  upsert_text(collection_name, text, filename, case_name)
     return res
 
 @app.route('/')

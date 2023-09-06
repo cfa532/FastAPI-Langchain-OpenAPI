@@ -78,35 +78,6 @@ def retrievalQAChain(collection_name:str, query:str):
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "refine my question below. \n\n find full name of the defendant")
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "Tell me what the plaintiff is suing for.")
 
-def getRequest(collection_name:str, query:str, temperature=0.5):
-    db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
-    prompt_temp = """Given the plaintiff 杭州阿家 and defendant 杭州栖溪. Use the following pieces of context to answer question at the end. If you don't know the answer, just say nothing and leave the answer blank. Try to find more than a couple of faults of the defendant.
-
-    {context}
-
-    Question: {question}
-    Answer all questions in Chinese."""
-
-    # Export result in JSON format. Using "FACT" as key to indicate fact and "REQUEST" as key to indicate the corresponding compensation request.
-    # Example:
-    # {{fact: the defendant costed $100,000 lost to the plaintiff, request: plaintiff requires $120,000 as compensation. }}
-    # {{fact: the defendant close road to access the facility, request: plaintiff requires $20,000 compensation due to incapcity of normal operation. }}
-
-    PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
-    CHAT_LLM.temperature = temperature
-    qa = RetrievalQA.from_chain_type(
-        CHAT_LLM, 
-        chain_type="stuff",
-        retriever=db.as_retriever(),
-        # return_source_documents=True,
-        chain_type_kwargs = {"prompt": PROMPT},
-    )
-    res = qa({"query": query})
-    CHAT_LLM.temperature = 0
-    print(res)
-
-# getRequest("huggingface", "列举杭州栖溪对杭州阿家造成的经济损失事实，并且提出合理的诉讼请求。")
-
 def getSubTask(query:str):
     return llm_chain("Seperate the following text into list of wrong doings by the defendant. Export the content in an array. Quote the original text directly." + query)
     # return llm_chain("把下文中杭州栖溪对杭州阿家造成损失的事实逐条列印出来，使用原文内容即可。 " + query)
