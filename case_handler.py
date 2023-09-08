@@ -1,4 +1,3 @@
-import langchain, re, os
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
@@ -12,9 +11,20 @@ def init_case(text):
     chunks = []
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
     chunks.extend(text_splitter.split_text(text))
-    file_db = Chroma.from_texts(chunks, embedding=EMBEDDING_FUNC)
-    # Upload all the docs to 检查案件名称，答辩人，辩护律师
-    return get_JSON_output(file_db, "给这个案件起一个标题，找出原告和被告全称，还有辩护律师和主审法官的姓名。")
+
+    # Have to appoint to the remote server if Chroma is running on different machine from Flask
+    file_db = Chroma.from_texts(chunks, embedding=EMBEDDING_FUNC, client=CHROMA_CLIENT)
+    res = {}
+    o = get_JSON_output(file_db, "找出原告名称。")
+    res.update({"plaintiff": o["result"]})
+    o = get_JSON_output(file_db, "找出被告名称。")
+    res.update({"defendant": o["result"]})
+
+    # rate limit maybe triggered.
+    o = get_JSON_output(file_db, "给这个案件起一个标题。")
+    res.update({"title": o["result"]})
+    
+    return res
 
 # Try to figure out the purpose of the lawsuit.
 def get_request(collection_name:str, query:str, temperature=0.0):
@@ -71,30 +81,31 @@ def get_argument(collection_name:str, query:str, temperature=0.0):
     CHAT_LLM.temperature = 0
     return res, query
 
-def get_JSON_output(db, query:str):
+def get_JSON_output(db_retriever, query:str):
     prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say nothing and leave the answer blank. 
 
     {context}
 
     Question: {question}
+
     Examples:
     SYSTEM: the answers are plaintiff is Cisco Co., and defendant is Goo Ltd.
-    OUTPUT: {{plaintiff: Cisco Co., address: 123 Main Street, CEO: John Smith}}
-            {{defendant:Goo Ltd., phone: 312-2334-576, CEO: Charlie Brown}}
+    OUTPUT: {{'plaintiff': 'Cisco Co.', 'address': '123 Main Street', 'CEO': 'John Smith'}}
+            {{'defendant':'Goo Ltd.', 'phone': '312-2334-576', 'CEO': 'Charlie Brown'}}
 
-    Answer all questions in Chinese and export result in JSON format as the examples, use keyword in the question
-    as KEY and result as VALUE in the JSON output"""
+
+    Answer all questions in Chinese and export result in JSON format as the examples."""
 
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
     qa = RetrievalQA.from_chain_type(
         CHAT_LLM, 
         chain_type="stuff",
-        retriever=db.as_retriever(),
-        # return_source_documents=True,
+        retriever=db_retriever,
+        return_source_documents=True,
         chain_type_kwargs = {"prompt": PROMPT},
     )
     refined_query = llm_chain("refine the following question in Chinese," + query)
     res = qa({"query": refined_query})
-    # print(res)
+    print("get_Json: ", res)
     # the first returned value is refined question, the 2nd is the result.
-    return res, refined_query
+    return res
