@@ -90,18 +90,20 @@ def get_JSON_output(db_retriever, query:str):
 
     Examples:
     SYSTEM: the answers are plaintiff is Cisco Co., and defendant is Goo Ltd.
-    OUTPUT: {{'plaintiff': 'Cisco Co.', 'address': '123 Main Street', 'CEO': 'John Smith'}}
-            {{'defendant':'Goo Ltd.', 'phone': '312-2334-576', 'CEO': 'Charlie Brown'}}
+    OUTPUT: 'plaintiff': 'Cisco Co.', 'address': '123 Main Street', 'CEO': 'John Smith',
+            'defendant':'Goo Ltd.', 'phone': '312-2334-576', 'CEO': 'Charlie Brown'
 
 
-    Answer all questions in Chinese and export result in JSON format as the examples."""
+    Export results formatted like the the examples. Formatted in key:value pairs. If there is not enough information to answer the query, still export in key:value format, but leave the value empty.
+    
+    In the exported key:value pair, both the key and value shall be in Chinese."""
 
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
     qa = RetrievalQA.from_chain_type(
         CHAT_LLM, 
         chain_type="stuff",
         retriever=db_retriever,
-        return_source_documents=True,
+        # return_source_documents=True,
         chain_type_kwargs = {"prompt": PROMPT},
     )
     refined_query = llm_chain("refine the following question in Chinese," + query)

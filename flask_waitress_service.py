@@ -16,29 +16,14 @@ app.config['SECRET_KEY'] = "secret!"
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.config['MAX_CONTENT_LENGTH'])
 
-@socketio.on("hello")
-def sayHi(arg):
-    print(arg); # "world"
-    return {"status": "greata"}     # returned parameter to the callback defined in client
-
-# given a file to extract basic information of a case, such as plaintiff and defendent
-@socketio.on("init_case")
-def init(filename, filetype, filedata):
-    print("Init case:", filename, filetype)
-    text = extract_text(filename, filetype, filedata)
-    res = init_case(text)
-    print(res)   # AI result and refined query
-    # res = {"title": "田产地头纠纷", "brief":"张三告李四多吃多占", "plaintiff":"张三", "defendant":"李四"}
-    return res
-
 # query case documents to figure basic informations about involved parties.
 # Always return the result and refined query
 @socketio.on("case_info")
 def case_info(my_case:LegalCase, query:str):
     print(my_case["id"], query)
+    query += "原告是"+my_case["plaintiff"]+", 被告是"+my_case["defendant"]+"。 "
     db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
-    # ret = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
-    ret = db.as_retriever()
+    ret = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     # query = "根据所提供资料，分别确定原告方及被告的基本信息。如当事人是公民（自然人），应写明姓名、性别、民族、出生年月日、住址、身份证号码、联系方式；当事人如是机关、团体、企事业单位，则写明名称、地址、统一社会信用代码、法定代表人姓名、职务"
     return get_JSON_output(ret, query)
 
@@ -89,3 +74,19 @@ def init():
     # print_object(resp)
     return resp
 """
+
+
+@socketio.on("hello")
+def sayHi(arg):
+    print(arg); # "world"
+    return {"status": "greata"}     # returned parameter to the callback defined in client
+
+# given a file to extract basic information of a case, such as plaintiff and defendent
+@socketio.on("init_case")
+def init(filename, filetype, filedata):
+    print("Init case:", filename, filetype)
+    text = extract_text(filename, filetype, filedata)
+    res = init_case(text)
+    print(res)   # AI result and refined query
+    # res = {"title": "田产地头纠纷", "brief":"张三告李四多吃多占", "plaintiff":"张三", "defendant":"李四"}
+    return res
