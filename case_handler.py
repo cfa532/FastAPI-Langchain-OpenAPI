@@ -90,13 +90,16 @@ def get_JSON_output(db_retriever, query:str):
 
     Examples:
     SYSTEM: the answers are plaintiff is Cisco Co., and defendant is Goo Ltd.
-    OUTPUT: 'plaintiff': 'Cisco Co.', 'address': '123 Main Street', 'CEO': 'John Smith',
-            'defendant':'Goo Ltd.', 'phone': '312-2334-576', 'CEO': 'Charlie Brown'
+    OUTPUT: plaintiff: Cisco Co., 
+            address: 123 Main Street, 
+            CEO: John Smith,
+            defendant: Goo Ltd., 
+            phone number: 312-2334-576,
 
 
-    Export results formatted like the the examples. Formatted in key:value pairs. If there is not enough information to answer the query, still export in key:value format, but leave the value empty.
+    Export results formatted like the above examples, in key:value pairs, where both the key and value shall be in Chinese. If there is not enough information to answer the query, still export a key:value pair, but leave an empty space as value.
     
-    In the exported key:value pair, both the key and value shall be in Chinese."""
+    Give all replies in Chinese."""
 
     PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
     qa = RetrievalQA.from_chain_type(
@@ -110,4 +113,4 @@ def get_JSON_output(db_retriever, query:str):
     res = qa({"query": refined_query})
     print("get_Json: ", res)
     # the first returned value is refined question, the 2nd is the result.
-    return res
+    return {"query":res["query"], "result":res["result"]}

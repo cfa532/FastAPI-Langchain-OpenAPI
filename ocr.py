@@ -34,3 +34,6 @@ def load_doc(doc: bytes):
         temp.close()
     return text
 """
+
+def load_img(img):
+   return str(pytesseract.image_to_string(Image.open(img), lang="chi_sim"))
