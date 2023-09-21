@@ -4,7 +4,16 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.chroma import Chroma
 
 # from langchain.callbacks import get_openai_callback
-from config import CHROMA_CLIENT, EMBEDDING_FUNC, CHAT_LLM, llm_chain
+from config import CHROMA_CLIENT, EMBEDDING_FUNC, CHAT_LLM, llm_chain, LegalCase, LAW_COLLECTION_NAME
+
+def analyse_wrongdoing(my_case:LegalCase, query:str):
+    law_db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)
+    # figure out the laws violated
+    laws = llm_chain("下述问题会涉及到哪几部相关法律？" +query)
+    print("Laws: " + laws)
+    for l in laws:
+        res=get_JSON_output(law_db, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
+        print(res)
 
 # Give text to create a in memory vector DB and answer query based on its content
 def init_case(text):

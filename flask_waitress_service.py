@@ -3,9 +3,10 @@ from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 from init_vectordb import upsert_text
 from langchain.vectorstores.chroma import Chroma
-from case_handler import init_case, get_JSON_output, get_request, get_argument
+from case_handler import init_case, get_JSON_output, get_request, get_argument, analyse_wrongdoing
+from docstore import getTaskList
 from init_vectordb import extract_text
-from config import CHROMA_CLIENT, EMBEDDING_FUNC, LegalCase
+from config import CHROMA_CLIENT, EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME
 
 # os.environ["TOKENIZERS_PARALLELISM"] = "false"
 app = Flask(__name__)
@@ -32,6 +33,27 @@ def case_request(collection_name:str, query:str):
     res, query = get_request(collection_name, query, 0.5)
     print("Request: ", res, query)
     return res, query
+
+@socketio.on("case_wrongs")
+def case_wrongs(my_case:LegalCase, wrongs:str):
+    docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case.mid, embedding_function=EMBEDDING_FUNC)
+    laws_db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)
+    # wrongdoings of the defendant, seperate it into a list
+    task_list = getTaskList(wrongs)
+    for t in task_list:
+        socketio.emit("process_task", t)   # tell client current task being processed
+        # process each wrong doings
+        # analyse_wrongdoing(my_case, t)
+        facts = get_JSON_output(docs_db, "查询与下属声明相关的事实。"+t)
+        # figure out the laws violated
+        laws = llm_chain("下述问题会涉及到哪几部相关法律？"+t)
+        print("Laws: " + laws)
+        for l in laws:
+            res=get_JSON_output(laws_db, t+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
+            print(res)
+            res=llm_chain("You are "+my_case.role+". Use the information provided to make an argument about the case.")
+            print(res)
+            socketio.emit("task_result", res)
 
 @socketio.on("case_argument")
 def case_argument(collection_name:str, query:str):

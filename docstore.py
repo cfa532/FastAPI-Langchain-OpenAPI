@@ -78,7 +78,7 @@ def retrievalQAChain(collection_name:str, query:str):
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "refine my question below. \n\n find full name of the defendant")
 # res = retrievalQAChain("5ACIVM0ewbQdqpgVtXhO3PW9QsJ", "Tell me what the plaintiff is suing for.")
 
-def getSubTask(query:str):
+def getTaskList(query:str):
     return llm_chain("Seperate the following text into list of wrong doings by the defendant. Export the content in an array. Quote the original text directly." + query)
     # return llm_chain("把下文中杭州栖溪对杭州阿家造成损失的事实逐条列印出来，使用原文内容即可。 " + query)
 

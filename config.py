@@ -34,7 +34,7 @@ CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VER
 # EMBEDDING_FUNC = OpenAIEmbeddings()
 # EMBEDDING_FUNC = DefaultEmbeddingFunction()
 # EMBEDDING_FUNC = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
-# EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
+# EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-large")
 EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
 
 def print_object(obj):
@@ -47,8 +47,9 @@ def llm_chain(query:str, llm=CHAT_LLM):
 
 class LegalCase:
     def __init__(self, lc):
-        self.mid = lc.mid           # Memei id of the user obj
-        self.id = lc.id             # id of the case
+        self.role = lc.role
+        self.mid = lc.mid           # Memei id of the user obj, used as colleciton name in DB
+        self.id = lc.id             # id of the case, used as doc_type metadata
         self.title = lc.title
         self.brief = lc.title
         self.plaintiff = lc.plaintiff
