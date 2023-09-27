@@ -23,10 +23,10 @@ CHROMA_CLIENT = chromadb.HttpClient(host='192.168.0.5', port=8000)
 LAW_COLLECTION_NAME = "law-docs"     # collection name for all public laws and regulations
 cols = CHROMA_CLIENT.list_collections()
 print(cols)
-# cols = CHROMA_CLIENT.get_collection("2TQDMb-Ug71i_iFIGCc-V7XnKv0")
-# print(cols.peek(1))
+# CHROMA_CLIENT.delete_collection("OWsMe8-Gl3epd7ESBEq9C7LjYX2")
+# cols = CHROMA_CLIENT.get_or_create_collection("OWsMe8-Gl3epd7ESBEq9C7LjYX2")
+# print(cols.peek(5))
 # CHROMA_CLIENT.reset()
-# CHROMA_CLIENT.delete_collection("law-docs")
 
 LLM = OpenAI(temperature=0, model="gpt-3.5-turbo", max_tokens=-1, verbose=VERBOSE,)
 CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1

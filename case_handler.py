@@ -36,8 +36,7 @@ def init_case(text):
     return res
 
 # Try to figure out the purpose of the lawsuit.
-def get_request(collection_name:str, query:str, temperature=0.0):
-    db = Chroma(client=CHROMA_CLIENT, collection_name=collection_name, embedding_function=EMBEDDING_FUNC)
+def get_request(db_retriever, query:str, temperature=0.0):
     prompt_temp = """ Use the following pieces of context to answer question at the end. If you don't know the answer, just say nothing and leave the answer blank. Try to find more than a couple of faults of the defendant.
 
     {context}
@@ -55,7 +54,7 @@ def get_request(collection_name:str, query:str, temperature=0.0):
     qa = RetrievalQA.from_chain_type(
         CHAT_LLM, 
         chain_type="stuff",
-        retriever=db.as_retriever(),
+        retriever=db_retriever,
         # return_source_documents=True,
         chain_type_kwargs = {"prompt": PROMPT},
     )

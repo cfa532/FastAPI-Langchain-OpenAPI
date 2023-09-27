@@ -15,10 +15,13 @@ def upsert_text(collection_name:str, text:str, filename:str, case_name="law", ch
         collection = CHROMA_CLIENT.get_or_create_collection(collection_name)
         chunks = text_splitter.split_text(text)
         print("chunks:", len(chunks))
+        pattern = re.compile(r'[\n\r\t]')   # necessary to process chinese 换行符
         for i,t in enumerate(chunks, start=1):
+            txt = re.sub(pattern, ' ', t)
+            print(txt)
             collection.upsert(
-                embeddings = [EMBEDDING_FUNC.embed_query(t)],  # if using OpenAIEmbedding, do not need [0]
-                documents = [t],
+                embeddings = [EMBEDDING_FUNC.embed_query(txt)],  # if using OpenAIEmbedding, do not need [0]
+                documents = [txt],
                 # for law case, the id is mid of the case. for laws, it is "law" which won't conflict with mid
                 metadatas = [{"source": filename, "doc_type":case_name}],
                 ids = [filename+'-'+str(i)]

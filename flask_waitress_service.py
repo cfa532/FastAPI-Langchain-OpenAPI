@@ -29,10 +29,13 @@ def case_info(my_case:LegalCase, query:str):
     return get_JSON_output(ret, query)
 
 @socketio.on("case_request")
-def case_request(collection_name:str, query:str):
-    res, query = get_request(collection_name, query, 0.5)
-    print("Request: ", res, query)
-    return res, query
+def case_request(my_case:LegalCase, query:str):
+    print(my_case["id"], query)
+    db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
+    ret = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
+    res, query = get_request(ret, query, 0.5)
+    print("Result: ", res, query)
+    return res
 
 @socketio.on("case_wrongs")
 def case_wrongs(my_case:LegalCase, wrongs:str):
