@@ -32,14 +32,15 @@ def case_info(my_case:LegalCase, query:str):
 def case_request(my_case:LegalCase, query:str):
     print(my_case["id"], query)
     db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
-    ret = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
-    res, query = get_request(ret, query, 0.5)
+    db_retriever = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
+    query += "原告是"+my_case["plaintiff"]+", 被告是"+my_case["defendant"]+"。 "
+    res, query = get_request(db_retriever, query, 0.7)
     print("Result: ", res, query)
     return res
 
 @socketio.on("case_wrongs")
 def case_wrongs(my_case:LegalCase, wrongs:str):
-    docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case.mid, embedding_function=EMBEDDING_FUNC)
+    docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     laws_db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)
     # wrongdoings of the defendant, seperate it into a list
     task_list = getTaskList(wrongs)
