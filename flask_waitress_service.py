@@ -40,6 +40,7 @@ def case_request(my_case:LegalCase, query:str):
 
 @socketio.on("case_wrongs")
 def case_wrongs(my_case:LegalCase, wrongs:str):
+    print(my_case["id"], wrongs)
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     laws_db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)
     # wrongdoings of the defendant, seperate it into a list
