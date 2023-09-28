@@ -44,6 +44,7 @@ def case_wrongs(my_case:LegalCase, wrongs:str):
     laws_db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)
     # wrongdoings of the defendant, seperate it into a list
     task_list = getTaskList(wrongs)
+    print(task_list)
     for t in task_list:
         socketio.emit("process_task", t)   # tell client current task being processed
         # process each wrong doings
