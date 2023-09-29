@@ -60,9 +60,10 @@ def case_wrongs(my_case:LegalCase, query:str):
     laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
     print("Laws: " + laws)
     for l in laws:
+        print("LAW", l)
         res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
         print(res)
-        res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts.result + ". " + l)
+        res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts["result"] + ". " + l)
         print(res)
         socketio.emit("task_result", res)
 

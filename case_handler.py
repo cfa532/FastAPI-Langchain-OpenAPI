@@ -119,6 +119,6 @@ def get_JSON_output(db_retriever, query:str):
     )
     refined_query = llm_chain("refine the following question in Chinese," + query)
     res = qa({"query": refined_query})
-    print("get_Json: ", res)
+    # print("get_Json: ", res)
     # the first returned value is refined question, the 2nd is the result.
     return {"query":res["query"], "result":res["result"]}
