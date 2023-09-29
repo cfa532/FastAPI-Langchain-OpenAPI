@@ -47,8 +47,8 @@ def case_wrongs(my_case:LegalCase, wrongs:str):
     # wrongdoings of the defendant, seperate it into a list
     task_list = getTaskList(wrongs)
     print(task_list)
-    for t, i in task_list:
-        print("问题",i+1, t)
+    for i,t in enumerate(task_list, start=1):
+        print("问题",i, t)
         socketio.emit("process_task", t)   # tell client current task being processed
         # process each wrong doings
         # analyse_wrongdoing(my_case, t)
