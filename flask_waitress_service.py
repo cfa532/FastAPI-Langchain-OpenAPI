@@ -1,3 +1,4 @@
+import re
 from flask import Flask, render_template, request, make_response
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
@@ -60,7 +61,7 @@ def case_wrongs(my_case:LegalCase, query:str):
     # figure out the laws violated
     laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
     print("Laws: " + laws)
-    for l in laws.split('\n')[:1]:
+    for l in re.findall('《.*?》', laws)[:1]:
         print("LAW: ", l)
         res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
         print("具体条款: ", res)
