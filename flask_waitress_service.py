@@ -22,7 +22,7 @@ socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.conf
 # Always return the result and refined query
 @socketio.on("case_info")
 def case_info(my_case:LegalCase, query:str):
-    print(my_case["id"], query)
+    print(my_case, query)
     # query += "原告是"+my_case["plaintiff"]+", 被告是"+my_case["defendant"]+"。 "
     db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
@@ -31,7 +31,7 @@ def case_info(my_case:LegalCase, query:str):
 
 @socketio.on("case_request")
 def case_request(my_case:LegalCase, query:str):
-    print(my_case["id"], query)
+    print(my_case, query)
     db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     query += "原告是"+my_case["plaintiff"]+", 被告是"+my_case["defendant"]+"。 "
@@ -41,7 +41,7 @@ def case_request(my_case:LegalCase, query:str):
 
 @socketio.on("case_wrongs")
 def case_wrongs(my_case:LegalCase, query:str):
-    print(my_case["id"], query, '\n')
+    print(my_case, query, '\n')
     laws_retriever = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC).as_retriever()
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = docs_db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
@@ -60,15 +60,16 @@ def case_wrongs(my_case:LegalCase, query:str):
     # figure out the laws violated
     laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
     print("Laws: " + laws)
-    for l in laws.split('\n'):
+    for l in laws.split('\n')[:1]:
         print("LAW", l)
         res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
-        print(res)
+        print("具体条款", res)
         res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts["result"] + ". " + l)
-        print(res)
+        print("陈述", res)
         socketio.emit("task_result", res)
 
-    socketio.emit("case_done")
+    print("case done")
+    socketio.emit("case_done", laws)
 
 @socketio.on("case_argument")
 def case_argument(collection_name:str, query:str):
