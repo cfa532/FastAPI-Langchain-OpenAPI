@@ -39,37 +39,41 @@ def case_request(my_case:LegalCase, query:str):
     return res
 
 @socketio.on("case_wrongs")
-def case_wrongs(my_case:LegalCase, wrongs:str):
-    print(my_case["id"], wrongs, '\n')
+def case_wrongs(my_case:LegalCase, query:str):
+    print(my_case["id"], query, '\n')
     laws_retriever = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC).as_retriever()
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = docs_db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     # wrongdoings of the defendant, seperate it into a list
-    task_list = llm_chain("Seperate the following text into a list of wrong doings by the defendant, seperate each item with a '&&'. Use the original text directly." + wrongs)
-    print(task_list)
-    task_list = task_list[1:-1]
+    # task_list = llm_chain("Seperate the following text into a list of wrong doings by the defendant, seperate each item with a '&&'. Use the original text directly." + wrongs)
+    # print(task_list)
+    # task_list = task_list[1:-1]
 
-    for t in task_list.split('",'):
-        print("问题", t)
-        socketio.emit("process_task", t)   # tell client current task being processed
-        # process each wrong doings
-        # analyse_wrongdoing(my_case, t)
-        facts = get_JSON_output(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+t)
-        print("FACTS: ", facts)
-        # figure out the laws violated
-        laws = llm_chain("下述问题会涉及到哪几部相关法律？"+t+". Export the content in an array. Quote the original text directly.")
-        print("Laws: " + laws)
-        for l in laws:
-            res=get_JSON_output(laws_retriever, t+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
-            print(res)
-            res=llm_chain("You are "+my_case.role+". Use the information provided to make an argument about the case. " + facts.result + ". " + l)
-            print(res)
-            socketio.emit("task_result", res)
+    # for t in task_list.split('",'):
+        # print("问题", t)
+    # socketio.emit("process_task", t)   # tell client current task being processed
+    # process each wrong doings
+    # analyse_wrongdoing(my_case, t)
+    facts = get_JSON_output(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+query)
+    print("FACTS: ", facts)
+    # figure out the laws violated
+    laws = llm_chain("下述问题会涉及到哪几部相关法律？"+query+". Export the content in an array. Quote the original text directly.")
+    print("Laws: " + laws)
+    for l in laws:
+        res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
+        print(res)
+        res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts.result + ". " + l)
+        print(res)
+        socketio.emit("task_result", res)
+
+    socketio.emit("case_done")
 
 @socketio.on("case_argument")
 def case_argument(collection_name:str, query:str):
     res, query = get_argument(collection_name, query)
-    print("Argument: ", res, query)
+    
+    
+    ("Argument: ", res, query)
     return res, query
 
 # Upload a file from web client
