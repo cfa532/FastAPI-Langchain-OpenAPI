@@ -40,15 +40,17 @@ def case_request(my_case:LegalCase, query:str):
 
 @socketio.on("case_wrongs")
 def case_wrongs(my_case:LegalCase, wrongs:str):
-    print(my_case["id"], wrongs)
+    print(my_case["id"], wrongs, '\n')
     laws_retriever = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC).as_retriever()
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = docs_db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     # wrongdoings of the defendant, seperate it into a list
-    task_list = getTaskList(wrongs)
+    task_list = llm_chain("Seperate the following text into a list of wrong doings by the defendant. Quote the original text directly." + wrongs)
     print(task_list)
-    for i,t in enumerate(task_list, start=1):
-        print("问题",i, t)
+    task_list = task_list[1:-1]
+
+    for t in task_list.split('",'):
+        print("问题", t)
         socketio.emit("process_task", t)   # tell client current task being processed
         # process each wrong doings
         # analyse_wrongdoing(my_case, t)
