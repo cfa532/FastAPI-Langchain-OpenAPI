@@ -45,7 +45,7 @@ def case_wrongs(my_case:LegalCase, wrongs:str):
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = docs_db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     # wrongdoings of the defendant, seperate it into a list
-    task_list = llm_chain("Seperate the following text into a list of wrong doings by the defendant. Quote the original text directly." + wrongs)
+    task_list = llm_chain("Seperate the following text into a list of wrong doings by the defendant, seperate each item with a '&&'. Use the original text directly." + wrongs)
     print(task_list)
     task_list = task_list[1:-1]
 
