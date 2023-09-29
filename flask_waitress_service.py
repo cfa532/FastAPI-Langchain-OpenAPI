@@ -17,6 +17,7 @@ app.config['SECRET_KEY'] = "secret!"
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.config['MAX_CONTENT_LENGTH'])
 
+
 # query case documents to figure basic informations about involved parties.
 # Always return the result and refined query
 @socketio.on("case_info")
@@ -59,7 +60,7 @@ def case_wrongs(my_case:LegalCase, query:str):
     # figure out the laws violated
     laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
     print("Laws: " + laws)
-    for l in laws:
+    for l in laws.split('\n'):
         print("LAW", l)
         res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
         print(res)
