@@ -57,7 +57,7 @@ def case_wrongs(my_case:LegalCase, query:str):
     facts = get_JSON_output(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+query)
     print("FACTS: ", facts)
     # figure out the laws violated
-    laws = llm_chain("下述问题会涉及到哪几部相关法律？"+query+". Export the content in an array. Quote the original text directly.")
+    laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
     print("Laws: " + laws)
     for l in laws:
         res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
