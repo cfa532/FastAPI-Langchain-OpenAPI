@@ -96,6 +96,31 @@ def get_JSON_output(db_retriever, query:str):
 
     Question: {question}
 
+    Export results formatted like the above examples, in key:value pairs, where both the key and value shall be in Chinese. If there is not enough information to answer the query, still export a key:value pair, but leave an empty space as value.
+    
+    Give all replies in Chinese."""
+
+    PROMPT = PromptTemplate(template=prompt_temp, input_variables=["context", "question"])
+    qa = RetrievalQA.from_chain_type(
+        CHAT_LLM, 
+        chain_type="stuff",
+        retriever=db_retriever,
+        # return_source_documents=True,
+        chain_type_kwargs = {"prompt": PROMPT},
+    )
+    refined_query = llm_chain("refine the following question in Chinese," + query)
+    res = qa({"query": refined_query})
+    # print("get_Json: ", res)
+    # the first returned value is refined question, the 2nd is the result.
+    return {"query":res["query"], "result":res["result"]}
+
+def get_basic_info(db_retriever, query:str):
+    prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say nothing and leave the answer blank. 
+
+    {context}
+
+    Question: {question}
+
     Examples:
     SYSTEM: the answers are plaintiff is Cisco Co., and defendant is Goo Ltd.
     OUTPUT: plaintiff: Cisco Co., 
