@@ -10,3 +10,4 @@
 *.parquet
 /tessdata
 /data
+test.py
