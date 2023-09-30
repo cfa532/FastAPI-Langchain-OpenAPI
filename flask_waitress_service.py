@@ -46,29 +46,28 @@ def case_wrongs(my_case:LegalCase, query:str):
     laws_retriever = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC).as_retriever()
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = docs_db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
-    # wrongdoings of the defendant, seperate it into a list
-    arr = llm_chain("Seperate the following text into a list of wrong doings by the defendant, export it as an array. Use the original text directly." + query)
-    print(arr)
-    task_list = re.findall('“.*+”')[:1]
+    # wrongdoings of the defendant, seperate it into a list.
+    # LLM will return a string, extract the array from it.
+    task_list = re.findall('".+"', llm_chain("Seperate the following text into a list of wrong doings by the defendant, export it as an array. Use the original text directly." + query))
     print(task_list)
-    return
-    # for t in task_list.split('",'):
-        # print("问题", t)
-    # socketio.emit("process_task", t)   # tell client current task being processed
-    # process each wrong doings
-    # analyse_wrongdoing(my_case, t)
-    facts = get_JSON_output(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+query)
-    print("FACTS: ", facts)
-    # figure out the laws violated
-    laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
-    print("Laws: " + laws)
-    for l in re.findall('《.*+》', laws)[:1]:
-        print("LAW: ", l)
-        res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
-        print("具体条款: ", res)
-        res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts["result"] + ". " + l)
-        print("陈述: ", res)
-        socketio.emit("task_result", res)
+
+    for t in task_list[:1]:
+        print("Task: ", t)
+        socketio.emit("process_task", t)   # tell client current task being processed
+        # process each wrong doings
+        facts = get_JSON_output(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+t)
+        print("FACTS: ", facts)
+
+        # figure out the laws violated
+        laws = llm_chain("下述声明会涉及到哪几部相关法律？"+t)
+        print("Laws: " + laws)
+        for l in re.findall('《.+》', laws)[:1]:
+            print("LAW: ", l)
+            law_items=get_JSON_output(laws_retriever, t+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
+            print("具体条款: ", law_items)
+            res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts["result"] + ". Concerning the following law, " + l)
+            print("陈述: ", res)
+            socketio.emit("task_result", res, law_items)
 
     print("case done")
     socketio.emit("case_done", laws)
