@@ -70,8 +70,7 @@ def case_wrongs(my_case:LegalCase, query:str):
             socketio.emit("task_result", {"argument": res, "law": law_items["result"]})
 
     print("case done")
-    socketio.emit("case_done", laws)
-    return "Case Done"
+    return laws     # list of relevant laws
 
 @socketio.on("case_argument")
 def case_argument(collection_name:str, query:str):
