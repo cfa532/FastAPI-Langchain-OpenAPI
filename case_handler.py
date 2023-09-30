@@ -12,7 +12,7 @@ def analyse_wrongdoing(my_case:LegalCase, query:str):
     laws = llm_chain("下述问题会涉及到哪几部相关法律？" +query)
     print("Laws: " + laws)
     for l in laws:
-        res=get_JSON_output(law_db, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
+        res=query_docstore(law_db, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
         print(res)
 
 # Give text to create a in memory vector DB and answer query based on its content
@@ -24,13 +24,13 @@ def init_case(text):
     # Have to appoint to the remote server if Chroma is running on different machine from Flask
     file_db = Chroma.from_texts(chunks, embedding=EMBEDDING_FUNC, client=CHROMA_CLIENT)
     res = {}
-    o = get_JSON_output(file_db, "找出原告名称。")
+    o = query_docstore(file_db, "找出原告名称。")
     res.update({"plaintiff": o["result"]})
-    o = get_JSON_output(file_db, "找出被告名称。")
+    o = query_docstore(file_db, "找出被告名称。")
     res.update({"defendant": o["result"]})
 
     # rate limit maybe triggered.
-    o = get_JSON_output(file_db, "给这个案件起一个标题。")
+    o = query_docstore(file_db, "给这个案件起一个标题。")
     res.update({"title": o["result"]})
     
     return res
@@ -89,7 +89,7 @@ def get_argument(collection_name:str, query:str, temperature=0.0):
     CHAT_LLM.temperature = 0
     return res, query
 
-def get_JSON_output(db_retriever, query:str):
+def query_docstore(db_retriever, query:str):
     prompt_temp = """Use the following pieces of context to answer the question at the end. If you don't know the answer, just say nothing and leave the answer blank. 
 
     {context}

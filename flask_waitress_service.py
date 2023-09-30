@@ -4,7 +4,7 @@ from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 from init_vectordb import upsert_text
 from langchain.vectorstores.chroma import Chroma
-from case_handler import init_case, get_JSON_output, get_request, get_argument, get_basic_info
+from case_handler import init_case, query_docstore, get_request, get_argument, get_basic_info
 from docstore import getTaskList
 from init_vectordb import extract_text
 from config import CHROMA_CLIENT, EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME
@@ -55,7 +55,7 @@ def case_wrongs(my_case:LegalCase, query:str):
         print("Task: ", t)
         socketio.emit("process_task", t)   # tell client current task being processed
         # process each wrong doings
-        facts = get_JSON_output(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+t)
+        facts = query_docstore(db_retriever, "从所提供资料中，查询与下述声明相关的事实。"+t)
         print("FACTS: ", facts)
 
         # figure out the laws violated
@@ -63,11 +63,11 @@ def case_wrongs(my_case:LegalCase, query:str):
         print("Laws: " + laws)
         for l in re.findall('《.+》', laws)[:1]:
             print("LAW: ", l)
-            law_items=get_JSON_output(laws_retriever, t+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
+            law_items=query_docstore(laws_retriever, t+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
             print("具体条款: ", law_items)
-            res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts["result"] + ". Concerning the following law, " + l)
+            res=llm_chain("You are "+my_case["role"]+". Use the information provided to make an argument about the case. " + facts["result"] + ". Concerning the following law, " + l + " and the following items. " + law_items["result"])
             print("陈述: ", res)
-            socketio.emit("task_result", res, law_items)
+            socketio.emit("task_result", {"argument": res, "law": law_items["result"]})
 
     print("case done")
     socketio.emit("case_done", laws)
