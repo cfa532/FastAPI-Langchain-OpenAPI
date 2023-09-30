@@ -105,12 +105,12 @@ def query_docstore(db_retriever, query:str):
         CHAT_LLM, 
         chain_type="stuff",
         retriever=db_retriever,
-        # return_source_documents=True,
+        return_source_documents=True,
         chain_type_kwargs = {"prompt": PROMPT},
     )
     refined_query = llm_chain("refine the following question in Chinese," + query)
     res = qa({"query": refined_query})
-    # print("get_Json: ", res)
+    print("get_Json: ", res)
     # the first returned value is refined question, the 2nd is the result.
     return {"query":res["query"], "result":res["result"]}
 

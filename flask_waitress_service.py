@@ -5,7 +5,6 @@ from flask_cors import CORS
 from init_vectordb import upsert_text
 from langchain.vectorstores.chroma import Chroma
 from case_handler import init_case, query_docstore, get_request, get_argument, get_basic_info
-from docstore import getTaskList
 from init_vectordb import extract_text
 from config import CHROMA_CLIENT, EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME
 
@@ -36,6 +35,8 @@ def case_request(my_case:LegalCase, query:str):
     db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     query += "原告是"+my_case["plaintiff"]+", 被告是"+my_case["defendant"]+"。 "
+
+    # 可以在此调整温度参数
     res, query = get_request(db_retriever, query, 0.7)
     print("Result: ", res, query)
     return res
