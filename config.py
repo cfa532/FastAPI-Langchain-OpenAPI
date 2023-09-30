@@ -41,7 +41,7 @@ def print_object(obj):
     pprint(vars(obj))
 
 def llm_chain(query:str, llm=CHAT_LLM):
-    return LLMChain(llm=llm, prompt=PromptTemplate.from_template("{query}"),
+    return LLMChain(llm=llm, prompt=PromptTemplate.from_template("{query}. Give your reply in Chinese."),
         # verbose=VERBOSE
     ).run(query)
 
