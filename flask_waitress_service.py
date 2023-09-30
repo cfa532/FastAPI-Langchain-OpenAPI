@@ -47,10 +47,11 @@ def case_wrongs(my_case:LegalCase, query:str):
     docs_db = Chroma(client=CHROMA_CLIENT, collection_name=my_case["mid"], embedding_function=EMBEDDING_FUNC)
     db_retriever = docs_db.as_retriever(search_kwargs={"filter":{"doc_type":my_case["id"]}})
     # wrongdoings of the defendant, seperate it into a list
-    # task_list = llm_chain("Seperate the following text into a list of wrong doings by the defendant, seperate each item with a '&&'. Use the original text directly." + wrongs)
-    # print(task_list)
-    # task_list = task_list[1:-1]
-
+    arr = llm_chain("Seperate the following text into a list of wrong doings by the defendant, export it as an array. Use the original text directly." + query)
+    print(arr)
+    task_list = re.findall('“.*+”')[:1]
+    print(task_list)
+    return
     # for t in task_list.split('",'):
         # print("问题", t)
     # socketio.emit("process_task", t)   # tell client current task being processed
@@ -61,7 +62,7 @@ def case_wrongs(my_case:LegalCase, query:str):
     # figure out the laws violated
     laws = llm_chain("下述声明会涉及到哪几部相关法律？"+query)
     print("Laws: " + laws)
-    for l in re.findall('《.*?》', laws)[:1]:
+    for l in re.findall('《.*+》', laws)[:1]:
         print("LAW: ", l)
         res=get_JSON_output(laws_retriever, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
         print("具体条款: ", res)
