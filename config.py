@@ -25,7 +25,7 @@ cols = CHROMA_CLIENT.list_collections()
 print(cols)
 laws = CHROMA_CLIENT.get_or_create_collection(LAW_COLLECTION_NAME)
 print(laws.count())
-print(laws.peek(3))
+print(laws.peek(5))
 
 # CHROMA_CLIENT.delete_collection(LAW_COLLECTION_NAME)
 # CHROMA_CLIENT.delete_collection("OWsMe8-Gl3epd7ESBEq9C7LjYX2")

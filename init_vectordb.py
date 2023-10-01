@@ -19,7 +19,7 @@ def upsert_text(collection_name:str, text:str, filename:str, case_name, chunk_si
         pattern = re.compile(r'[\n\r\t]')   # necessary to process chinese 换行符
         time_stamp = time.time()
         for i,t in enumerate(chunks, start=1):
-            txt = unicodedata.normalize('NFKC', re.sub(pattern, ' ', t))
+            txt = unicodedata.normalize('NFKC', re.sub(pattern, ' ', t))    # remove full-width space and satro
             collection.upsert(
                 embeddings = [EMBEDDING_FUNC.embed_query(txt)],  # if using OpenAIEmbedding, do not need [0]
                 documents = [txt],
