@@ -11,3 +11,23 @@
 /tessdata
 /data
 test.py
+.ipynb_checkpoints/CaseInfo-checkpoint.py
+.ipynb_checkpoints/flask_waitress_service-checkpoint.py
+.ipynb_checkpoints/GPTClone-checkpoint.py
+.ipynb_checkpoints/Pt1-checkpoint.ipynb
+.ipynb_checkpoints/Pt2-checkpoint.ipynb
+.ipynb_checkpoints/Pt3-checkpoint.ipynb
+.ipynb_checkpoints/Pt4-checkpoint.ipynb
+.ipynb_checkpoints/Untitled-checkpoint.ipynb
+.ipynb_checkpoints/Untitled1-checkpoint.ipynb
+melb_data.csv
+runs/fashion_mnist_experiment_1/Training vs. Validation Loss_Validation/events.out.tfevents.1697731126.Mac-mini.local.70796.2
+runs/fashion_mnist_experiment_1/Training vs. Validation Loss_Training/events.out.tfevents.1697731126.Mac-mini.local.70796.1
+runs/fashion_mnist_experiment_1/events.out.tfevents.1697731115.Mac-mini.local.70796.0
+img/cat.jpg
+Pt1.ipynb
+Pt2.ipynb
+Pt3.ipynb
+Pt4.ipynb
+Untitled.ipynb
+Untitled1.ipynb
