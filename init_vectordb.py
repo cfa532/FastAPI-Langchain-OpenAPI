@@ -1,6 +1,6 @@
 from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
 from langchain.vectorstores import Chroma
-from config import CHROMA_CLIENT, EMBEDDING_FUNC, LAW_COLLECTION_NAME
+from config import EMBEDDING_FUNC, LAW_COLLECTION_NAME
 from chromadb.api.models.Collection import Collection
 import os, shutil, docx, re, time
 from werkzeug.datastructures import FileStorage
@@ -8,6 +8,7 @@ from io import BytesIO
 from ocr import load_pdf
 import unicodedata
 
+CHROMA_CLIENT = None
 def upsert_text(collection_name:str, text:str, filename:str, case_name, chunk_size=1000, chunk_overlap=100):
     # from langchain.text_splitter import NLTKTextSplitter
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=chunk_size, chunk_overlap=chunk_overlap, separators=['.', '\n\n', '\n', ',', '。','，'])

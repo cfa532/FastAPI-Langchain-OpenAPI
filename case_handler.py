@@ -4,7 +4,8 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.vectorstores.chroma import Chroma
 
 # from langchain.callbacks import get_openai_callback
-from config import CHROMA_CLIENT, EMBEDDING_FUNC, CHAT_LLM, llm_chain, LegalCase, LAW_COLLECTION_NAME
+from config import EMBEDDING_FUNC, CHAT_LLM, llm_chain, LegalCase, LAW_COLLECTION_NAME
+CHROMA_CLIENT = None
 
 def analyse_wrongdoing(my_case:LegalCase, query:str):
     law_db = Chroma(client=CHROMA_CLIENT, collection_name=LAW_COLLECTION_NAME, embedding_function=EMBEDDING_FUNC)

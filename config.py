@@ -4,9 +4,9 @@ from langchain.chat_models import ChatOpenAI
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain.embeddings import SentenceTransformerEmbeddings
+from langchain.embeddings.openai import OpenAIEmbeddings
 # from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
-# from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.embeddings import HuggingFaceInstructEmbeddings
+# from langchain.embeddings import HuggingFaceInstructEmbeddings
 
 # Init environment variables in .env file
 from pprint import pprint
@@ -14,18 +14,19 @@ from dotenv import load_dotenv
 load_dotenv()
 
 VERBOSE = True
+MAX_TOKENS = 4096       # for GPT4
 
 """The maximum number of tokens to generate in the completion.
     -1 returns as many tokens as possible given the prompt and
     the models maximal context size."""
 
-CHROMA_CLIENT = chromadb.HttpClient(host='192.168.0.5', port=8000)
+# CHROMA_CLIENT = chromadb.HttpClient(host='192.168.0.5', port=8000)
 LAW_COLLECTION_NAME = "law-docs"     # collection name for all public laws and regulations
-cols = CHROMA_CLIENT.list_collections()
-print(cols)
-laws = CHROMA_CLIENT.get_or_create_collection(LAW_COLLECTION_NAME)
-print(laws.count())
-print(laws.peek(5))
+# cols = CHROMA_CLIENT.list_collections()
+# print(cols)
+# laws = CHROMA_CLIENT.get_or_create_collection(LAW_COLLECTION_NAME)
+# print(laws.count())
+# print(laws.peek(5))
 
 # CHROMA_CLIENT.delete_collection(LAW_COLLECTION_NAME)
 # CHROMA_CLIENT.delete_collection("OWsMe8-Gl3epd7ESBEq9C7LjYX2")
@@ -35,11 +36,11 @@ print(laws.peek(5))
 LLM = OpenAI(temperature=0, model="gpt-3.5-turbo", max_tokens=-1, verbose=VERBOSE,)
 CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
 
-# EMBEDDING_FUNC = OpenAIEmbeddings()
+EMBEDDING_FUNC = OpenAIEmbeddings()
 # EMBEDDING_FUNC = DefaultEmbeddingFunction()
 # EMBEDDING_FUNC = SentenceTransformerEmbeddings(model_name="all-MiniLM-L6-v2")
 # EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-large")
-EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
+# EMBEDDING_FUNC = HuggingFaceInstructEmbeddings(model_name="hkunlp/instructor-xl")
 
 def print_object(obj):
     pprint(vars(obj))
