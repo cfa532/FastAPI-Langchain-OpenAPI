@@ -3,13 +3,15 @@ from flask import Flask, render_template, request, make_response
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
 from init_vectordb import upsert_text, extract_text
-from langchain.vectorstores.chroma import Chroma
+from langchain_community.vectorstores import Chroma
+from langchain.memory import ConversationBufferWindowMemory
+from langchain.chains import ConversationChain
 from case_handler import init_case, query_docstore, get_request, get_argument, get_basic_info
-from config import EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME, MAX_TOKENS
+from config import EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME, MAX_TOKENS, CHAT_LLM, LLM
 CHROMA_CLIENT = None
-from openai import OpenAI
-client = OpenAI()
-model = "gpt-4"
+# from openai import OpenAI
+# client = OpenAI()
+# model = "gpt-4"
 HALF_TOKENS = MAX_TOKENS/2
 
 # os.environ["TOKENIZERS_PARALLELISM"] = "false"
@@ -21,36 +23,40 @@ app.config['SECRET_KEY'] = "secret!"
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.config['MAX_CONTENT_LENGTH'])
 
+chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(k=6))
 @socketio.on("gpt_api")
 def gpt_api(chat_history: [], query:str):
-    # build a query with chat history and send it to GPT
-    # most recent chat message comes in first. Limit chat history to 2000 tokens
-    prev_chat = ""
-    for chat in chat_history:
-        ch = "User says " + chat["Q"] + ". AI says " + chat["A"] +"."
-        print(ch)
-        if len(prev_chat)+len(ch) >= HALF_TOKENS:
-            prev_chat += ch[:(HALF_TOKENS-len(prev_chat))]
-            break
-        else:
-            prev_chat += ch
-    print("聊天历史记录：", prev_chat)
-    stream = client.chat.completions.create(
-        model=model,
-        stream=True,
-        messages=[
-            {"role": "system", "content": "You are a helpful Chinese assistant designed to answer questions in Chinese."},
-            {"role": "user", "content": query},
-            # {"role": "assistant", "content": prev_chat}
-        ]
-    )
-    answer = ""
-    for chunk in stream:
-        if chunk.choices[0].delta.content is not None:
-            answer += chunk.choices[0].delta.content
-            socketio.emit("stream_in", answer)
-            print(chunk.choices[0].delta.content, end="")
-    return answer
+    resp = chain.predict(input=query)
+    print(resp)
+    return resp
+    # # build a query with chat history and send it to GPT
+    # # most recent chat message comes in first. Limit chat history to 2000 tokens
+    # prev_chat = ""
+    # for chat in chat_history:
+    #     ch = "User says " + chat["Q"] + ". AI says " + chat["A"] +"."
+    #     print(ch)
+    # #     if len(prev_chat)+len(ch) >= HALF_TOKENS:
+    # #         prev_chat += ch[:(HALF_TOKENS-len(prev_chat))]
+    # #         break
+    # #     else:
+    # #         prev_chat += ch
+    # # print("聊天历史记录：", prev_chat)
+    # stream = client.chat.completions.create(
+    #     model=model,
+    #     stream=True,
+    #     messages=[
+    #         {"role": "system", "content": "You are a helpful Chinese assistant designed to answer questions in Chinese."},
+    #         {"role": "user", "content": query},
+    #         # {"role": "assistant", "content": prev_chat}
+    #     ]
+    # )
+    # answer = ""
+    # for chunk in stream:
+    #     if chunk.choices[0].delta.content is not None:
+    #         answer += chunk.choices[0].delta.content
+    #         print(chunk.choices[0].delta.content, end="")
+    #         socketio.emit("stream_in", answer)
+    # return answer
 
 # query case documents to figure basic informations about involved parties.
 # Always return the result and refined query

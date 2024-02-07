@@ -1,5 +1,5 @@
 import langchain
-from langchain.vectorstores.chroma import Chroma
+from langchain_community.vectorstores import Chroma
 from langchain.chains import RetrievalQA, SimpleSequentialChain, LLMChain
 from langchain.chains.question_answering import load_qa_chain
 from langchain.agents import initialize_agent, Tool

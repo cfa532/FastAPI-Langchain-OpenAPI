@@ -1,5 +1,5 @@
 from langchain.text_splitter import CharacterTextSplitter, RecursiveCharacterTextSplitter
-from langchain.vectorstores import Chroma
+from langchain_community.vectorstores import Chroma
 from config import EMBEDDING_FUNC, LAW_COLLECTION_NAME
 from chromadb.api.models.Collection import Collection
 import os, shutil, docx, re, time

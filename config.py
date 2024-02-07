@@ -1,10 +1,10 @@
-import chromadb
-from langchain.llms import OpenAI
-from langchain.chat_models import ChatOpenAI
+from langchain_community.vectorstores import Chroma
+from langchain_openai import OpenAI
+from langchain_openai import ChatOpenAI
+from langchain_openai import OpenAIEmbeddings
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
-from langchain.embeddings import SentenceTransformerEmbeddings
-from langchain.embeddings.openai import OpenAIEmbeddings
+from langchain_community.embeddings import SentenceTransformerEmbeddings
 # from chromadb.utils.embedding_functions import DefaultEmbeddingFunction
 # from langchain.embeddings import HuggingFaceInstructEmbeddings
 
@@ -15,6 +15,8 @@ load_dotenv()
 
 VERBOSE = True
 MAX_TOKENS = 4096       # for GPT4
+LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE,)
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
 
 """The maximum number of tokens to generate in the completion.
     -1 returns as many tokens as possible given the prompt and
@@ -33,8 +35,6 @@ LAW_COLLECTION_NAME = "law-docs"     # collection name for all public laws and r
 # cols = CHROMA_CLIENT.get_or_create_collection("OWsMe8-Gl3epd7ESBEq9C7LjYX2")
 # CHROMA_CLIENT.reset()
 
-LLM = OpenAI(temperature=0, model="gpt-3.5-turbo", max_tokens=-1, verbose=VERBOSE,)
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
 
 EMBEDDING_FUNC = OpenAIEmbeddings()
 # EMBEDDING_FUNC = DefaultEmbeddingFunction()

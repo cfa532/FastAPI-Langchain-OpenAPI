@@ -1,7 +1,7 @@
 from langchain.chains import RetrievalQA
 from langchain.prompts import PromptTemplate
 from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.vectorstores.chroma import Chroma
+from langchain_community.vectorstores import Chroma
 
 # from langchain.callbacks import get_openai_callback
 from config import EMBEDDING_FUNC, CHAT_LLM, llm_chain, LegalCase, LAW_COLLECTION_NAME
