@@ -2,6 +2,8 @@ from langchain_community.vectorstores import Chroma
 from langchain_openai import OpenAI
 from langchain_openai import ChatOpenAI
 from langchain_openai import OpenAIEmbeddings
+from langchain_core.callbacks import CallbackManager
+
 from langchain.prompts import PromptTemplate
 from langchain.chains import LLMChain
 from langchain_community.embeddings import SentenceTransformerEmbeddings
@@ -15,8 +17,13 @@ load_dotenv()
 
 VERBOSE = True
 MAX_TOKENS = 4096       # for GPT4
-LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE,)
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE)     # ChatOpenAI cannot have max_token=-1
+def handleLLMNewToken(token):
+    print(token)
+# callback_manager = CallbackManager.add_handler(handler=handleLLMNewToken)
+
+LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE, streaming=True)
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, verbose=VERBOSE, streaming=True,
+                      )     # ChatOpenAI cannot have max_token=-1
 
 """The maximum number of tokens to generate in the completion.
     -1 returns as many tokens as possible given the prompt and

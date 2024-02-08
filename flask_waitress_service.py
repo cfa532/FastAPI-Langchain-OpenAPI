@@ -1,13 +1,20 @@
-import re
+import re, sys
+from typing import Any
 from flask import Flask, render_template, request, make_response
 from flask_socketio import SocketIO, emit, send
 from flask_cors import CORS
-from init_vectordb import upsert_text, extract_text
+
+from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Chroma
 from langchain.memory import ConversationBufferWindowMemory
 from langchain.chains import ConversationChain
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
+from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+
+from init_vectordb import upsert_text, extract_text
 from case_handler import init_case, query_docstore, get_request, get_argument, get_basic_info
-from config import EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME, MAX_TOKENS, CHAT_LLM, LLM
+from config import EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME, MAX_TOKENS, LLM
 CHROMA_CLIENT = None
 # from openai import OpenAI
 # client = OpenAI()
@@ -22,13 +29,29 @@ app.debug = False
 app.config['SECRET_KEY'] = "secret!"
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.config['MAX_CONTENT_LENGTH'])
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, streaming=True,
+                      callbacks=[StreamingStdOutCallbackHandler()])     # ChatOpenAI cannot have max_token=-1
+chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(k=6), verbose=True)
+chain.output_parser = StrOutputParser()
 
-chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(k=6))
+class MyStreamingHandler(StreamingStdOutCallbackHandler):
+    def __init__(self) -> None:
+        super().__init__()
+
+    def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        print(token, end='|')
+        sys.stdout.flush()
+
+# chain.callbacks=[StreamingStdOutCallbackHandler()]
+
 @socketio.on("gpt_api")
 def gpt_api(chat_history: [], query:str):
-    resp = chain.predict(input=query)
-    print(resp)
-    return resp
+    # resp = chain.predict(input=query)
+    # print(resp)
+    # return resp
+    for chunk in chain.stream({"input": query}):
+        print(chunk, end="|", flush=True)
+    return "Great"
     # # build a query with chat history and send it to GPT
     # # most recent chat message comes in first. Limit chat history to 2000 tokens
     # prev_chat = ""
