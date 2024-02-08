@@ -11,6 +11,7 @@ from langchain.chains import ConversationChain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
+from langchain.globals import set_debug
 
 from init_vectordb import upsert_text, extract_text
 from case_handler import init_case, query_docstore, get_request, get_argument, get_basic_info
@@ -35,9 +36,9 @@ class MyStreamingHandler(StreamingStdOutCallbackHandler):
         super().__init__()
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        print(token)
         socketio.emit("stream_in", token)
-        sys.stdout.flush()
+        # sys.stdout.write(token)
+        # sys.stdout.flush()
 
 CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, streaming=True,
                       callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
