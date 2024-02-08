@@ -29,29 +29,29 @@ app.debug = False
 app.config['SECRET_KEY'] = "secret!"
 CORS(app)
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=app.config['MAX_CONTENT_LENGTH'])
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, streaming=True,
-                      callbacks=[StreamingStdOutCallbackHandler()])     # ChatOpenAI cannot have max_token=-1
-chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(k=6), verbose=True)
-chain.output_parser = StrOutputParser()
 
 class MyStreamingHandler(StreamingStdOutCallbackHandler):
     def __init__(self) -> None:
         super().__init__()
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
-        print(token, end='|')
+        print(token)
+        socketio.emit("stream_in", token)
         sys.stdout.flush()
 
-# chain.callbacks=[StreamingStdOutCallbackHandler()]
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, streaming=True,
+                      callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
+chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(k=6), verbose=True)
+chain.output_parser = StrOutputParser()
 
 @socketio.on("gpt_api")
 def gpt_api(chat_history: [], query:str):
-    # resp = chain.predict(input=query)
-    # print(resp)
-    # return resp
-    for chunk in chain.stream({"input": query}):
-        print(chunk, end="|", flush=True)
-    return "Great"
+    resp = chain.predict(input=query)
+    print(resp)
+    return resp
+    # for chunk in chain.stream({"input": query}):
+    #     print(chunk, end="|", flush=True)
+    # return "Great"
     # # build a query with chat history and send it to GPT
     # # most recent chat message comes in first. Limit chat history to 2000 tokens
     # prev_chat = ""
