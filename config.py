@@ -22,8 +22,7 @@ def handleLLMNewToken(token):
 # callback_manager = CallbackManager.add_handler(handler=handleLLMNewToken)
 
 LLM = OpenAI(temperature=0, model="gpt-4", max_tokens=1024, verbose=VERBOSE, streaming=True)
-CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, verbose=VERBOSE, streaming=True,
-                      )     # ChatOpenAI cannot have max_token=-1
+CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, verbose=VERBOSE, streaming=True)     # ChatOpenAI cannot have max_token=-1
 
 """The maximum number of tokens to generate in the completion.
     -1 returns as many tokens as possible given the prompt and
