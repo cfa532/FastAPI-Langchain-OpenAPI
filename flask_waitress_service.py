@@ -36,9 +36,9 @@ class MyStreamingHandler(StreamingStdOutCallbackHandler):
         super().__init__()
 
     def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        sys.stdout.write(token)
         socketio.emit("stream_in", token)
-        # sys.stdout.write(token)
-        # sys.stdout.flush()
+        sys.stdout.flush()
 
 CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, streaming=True,
                       callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
@@ -46,9 +46,9 @@ chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(k=
 chain.output_parser = StrOutputParser()
 
 @socketio.on("gpt_api")
-def gpt_api(chat_history: [], query:str):
+def gpt_api(chat_history, query:str):
     resp = chain.predict(input=query)
-    print(resp)
+    # print(resp)
     return resp
     # for chunk in chain.stream({"input": query}):
     #     print(chunk, end="|", flush=True)
