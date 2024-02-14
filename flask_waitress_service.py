@@ -51,7 +51,7 @@ def gpt_api(chat_history, query:str):
     # resp = chain.predict(input=query)
     # return resp
     for chunk in chain.stream(query):
-        print(chunk, end="", flush=True)
+        print(chunk, end="", flush=True)    # chunk size can be big
     return
 
     # # build a query with chat history and send it to GPT
