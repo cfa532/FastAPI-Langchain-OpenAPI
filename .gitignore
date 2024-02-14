@@ -16,3 +16,4 @@ runs/fashion_mnist_experiment_1/Training vs. Validation Loss_Validation/events.o
 runs/fashion_mnist_experiment_1/Training vs. Validation Loss_Training/events.out.tfevents.1697731126.Mac-mini.local.70796.1
 runs/fashion_mnist_experiment_1/events.out.tfevents.1697731115.Mac-mini.local.70796.0
 img/cat.jpg
+.env
