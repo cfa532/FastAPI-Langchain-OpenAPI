@@ -7,8 +7,9 @@ from langchain.chains import ConversationChain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-
-from config import EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME, MAX_TOKENS, LLM
+# from config import EMBEDDING_FUNC, LegalCase, llm_chain, LAW_COLLECTION_NAME, MAX_TOKENS, LLM
+from dotenv import load_dotenv
+load_dotenv()
 
 async def handler(websocket):
     class MyStreamingHandler(StreamingStdOutCallbackHandler):
@@ -17,7 +18,6 @@ async def handler(websocket):
 
         async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
             sys.stdout.write(token)
-            # emit("stream_in", token)    # reply to event sent from the client, socketio.emit reply to all clients
             await websocket.send(json.dumps({"type": "stream", "data": token}))
             sys.stdout.flush()
 
