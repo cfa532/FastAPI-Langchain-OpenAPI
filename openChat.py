@@ -59,9 +59,6 @@ async def handler(websocket):
     chain.output_parser=StrOutputParser()
 
     while True:
-        if not websocket.open:
-            print("Reconnecting....")
-            await websockets.serve(handler, "", 5050)
         try:
             async for message in websocket:
                 print(message)
