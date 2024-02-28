@@ -43,6 +43,7 @@ async def handler(websocket):
         def buffer_as_str(self) -> str:
             """Exposes the buffer as a string in case return_messages is True."""
             messages = self.chat_memory.messages[-self.k * 2 :] if self.k > 0 else []
+            
             """remove the early messages to keep buffer from exceeding max token length"""
             trim(messages, MAX_TOKEN/2)
 
@@ -58,6 +59,9 @@ async def handler(websocket):
     chain.output_parser=StrOutputParser()
 
     while True:
+        if not websocket.open:
+            print("Reconnecting....")
+            await websockets.serve(handler, "", 5050)
         try:
             async for message in websocket:
                 print(message)
@@ -67,8 +71,10 @@ async def handler(websocket):
                     print(chunk, end="", flush=True)    # chunk size can be big
                 await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
-        except websockets.ConnectionClosedOK:
-            break
+        except websockets.ConnectionClosedError as e:
+            # keep abnormal messages from logging
+            print("Error:", e)
+            # break
 
 async def main():
     async with websockets.serve(handler, "", 5050):
