@@ -35,25 +35,25 @@ async def handler(websocket):
             await websocket.send(json.dumps({"type": "stream", "data": token}))
             sys.stdout.flush()
 
-    class MyConversationWindowMemory(ConversationBufferWindowMemory):
-        def __init__(self) -> None:
-            super().__init__()
+    # class MyConversationWindowMemory(ConversationBufferWindowMemory):
+    #     def __init__(self) -> None:
+    #         super().__init__()
 
-        @property
-        def buffer_as_str(self) -> str:
-            """Exposes the buffer as a string in case return_messages is True."""
-            messages = self.chat_memory.messages[-self.k * 2 :] if self.k > 0 else []
+    #     @property
+    #     def buffer_as_str(self) -> str:
+    #         """Exposes the buffer as a string in case return_messages is True."""
+    #         messages = self.chat_memory.messages[-self.k * 2 :] if self.k > 0 else []
             
-            """remove the early messages to keep buffer from exceeding max token length"""
-            trim(messages, MAX_TOKEN/2)
+    #         """remove the early messages to keep buffer from exceeding max token length"""
+    #         trim(messages, MAX_TOKEN/2)
 
-            return get_buffer_string(
-                messages,
-                human_prefix=self.human_prefix,
-                ai_prefix=self.ai_prefix,
-            )
+    #         return get_buffer_string(
+    #             messages,
+    #             human_prefix=self.human_prefix,
+    #             ai_prefix=self.ai_prefix,
+    #         )
     
-    CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", max_tokens=2048, streaming=True,
+    CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", streaming=True,
                         callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
     chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(), verbose=True)
     chain.output_parser=StrOutputParser()
@@ -64,6 +64,8 @@ async def handler(websocket):
                 print(message)
                 event = json.loads(message)
                 assert event["type"] == "gpt_api", "Only accept gpt_api"
+                print("memory len=",len(chain.memory.buffer_as_str))
+                # chain.llm.max_tokens = MAX_TOKEN-len(chain.memory.buffer_as_str)
                 for chunk in chain.stream(event["query"]):
                     print(chunk, end="", flush=True)    # chunk size can be big
                 await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
