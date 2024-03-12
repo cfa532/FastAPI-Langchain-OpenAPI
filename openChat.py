@@ -64,7 +64,7 @@ async def handler(websocket):
                 print(message)
                 event = json.loads(message)
                 assert event["type"] == "gpt_api", "Only accept gpt_api"
-                print("memory len=",len(chain.memory.buffer_as_str))
+                # print("memory len=",len(chain.memory.buffer_as_str))
                 # chain.llm.max_tokens = MAX_TOKEN-len(chain.memory.buffer_as_str)
                 for chunk in chain.stream(event["query"]):
                     print(chunk, end="", flush=True)    # chunk size can be big
