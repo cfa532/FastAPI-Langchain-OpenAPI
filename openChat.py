@@ -70,10 +70,14 @@ async def handler(websocket):
                     print(chunk, end="", flush=True)    # chunk size can be big
                 await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
-        except websockets.ConnectionClosedError as e:
+        except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
             print("Error:", e)
-            # break
+        finally:
+            try:
+                websocket.close()
+            except NameError:
+                pass
 
 async def main():
     async with websockets.serve(handler, "", 5050):
