@@ -58,24 +58,31 @@ async def handler(websocket):
     chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(), verbose=True)
     chain.output_parser=StrOutputParser()
 
+    blacklist = ["172.31.9.52"]
+    if websocket.remote_address[0] in blacklist:
+        return
+    
     while True:
         try:
             async for message in websocket:
                 print(message)
                 event = json.loads(message)
-                assert event["type"] == "gpt_api", "Only accept gpt_api"
-                # print("memory len=",len(chain.memory.buffer_as_str))
-                # chain.llm.max_tokens = MAX_TOKEN-len(chain.memory.buffer_as_str)
-                for chunk in chain.stream(event["query"]):
-                    print(chunk, end="", flush=True)    # chunk size can be big
-                await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
+                if event["type"] == "query":
+                    params = event["parameters"]
+                    if params["llm"] == "openai":
+                        CHAT_LLM.temperature = float(params["temperature"])
+                    elif params["llm"] == "qianfan":
+                        pass
+                    for chunk in chain.stream(event["query"]):
+                        print(chunk, end="", flush=True)    # chunk size can be big
+                    await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
         except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
             print("Error:", e)
         finally:
             try:
-                websocket.close()
+                await websocket.close()
             except NameError:
                 pass
 
