@@ -58,9 +58,9 @@ async def handler(websocket):
     chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(), verbose=True)
     chain.output_parser=StrOutputParser()
 
-    blacklist = ["172.31.9.52"]
-    if websocket.remote_address[0] in blacklist:
-        return
+    # blacklist = ["172.31.9.52"]
+    # if websocket.remote_address[0] in blacklist:
+    #     return
     
     while True:
         try:
@@ -80,7 +80,7 @@ async def handler(websocket):
 
         except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
-            print("Error:", e)
+            print("Error:", type(e), e)
         finally:
             try:
                 await websocket.close()
