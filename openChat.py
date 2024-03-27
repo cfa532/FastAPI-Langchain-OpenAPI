@@ -73,6 +73,7 @@ async def handler(websocket):
                         CHAT_LLM.temperature = float(params["temperature"])
                     elif params["llm"] == "qianfan":
                         pass
+                    
                     for chunk in chain.stream(event["query"]):
                         print(chunk, end="", flush=True)    # chunk size can be big
                     await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
