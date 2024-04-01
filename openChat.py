@@ -2,12 +2,19 @@ import asyncio, websockets, os, sys, json
 from typing import Any
 from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Chroma
-from langchain.memory import ConversationBufferWindowMemory
+from langchain.memory import ConversationBufferWindowMemory, ConversationBufferMemory
 from langchain.chains import ConversationChain
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from dotenv import load_dotenv
+
+from langchain_core.messages import (
+    AIMessage,
+    BaseMessage,
+    HumanMessage,
+    get_buffer_string,
+)
 
 load_dotenv()
 MAX_TOKEN = 4096
@@ -52,10 +59,11 @@ async def handler(websocket):
     #             human_prefix=self.human_prefix,
     #             ai_prefix=self.ai_prefix,
     #         )
-    
+
     CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", streaming=True,
                         callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
-    chain = ConversationChain(llm=CHAT_LLM, memory=ConversationBufferWindowMemory(), verbose=True)
+    memory = ConversationBufferMemory(return_messages=False)
+    chain = ConversationChain(llm=CHAT_LLM, memory=memory, verbose=True)
     chain.output_parser=StrOutputParser()
 
     # blacklist = ["172.31.9.52"]
@@ -73,8 +81,17 @@ async def handler(websocket):
                         CHAT_LLM.temperature = float(params["temperature"])
                     elif params["llm"] == "qianfan":
                         pass
-                    
-                    for chunk in chain.stream(event["query"]):
+
+                    hlen = 0
+                    arrMsg = []
+                    for c in event["query"]["history"]:
+                        hlen += len(c["Q"]) + len(c["A"])
+                        if hlen > MAX_TOKEN/2:
+                            break
+                        else:
+                            memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
+
+                    for chunk in chain.stream(event["query"]["input"]):
                         print(chunk, end="", flush=True)    # chunk size can be big
                     await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
