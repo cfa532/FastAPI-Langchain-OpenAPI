@@ -82,6 +82,8 @@ async def handler(websocket):
 
                 hlen = 0
                 if "history" in event["input"]:
+                    # user server history if history key is not present in user request
+                    memory.clear()  # do not use memory on serverside. Add chat history kept by client.
                     for c in event["input"]["history"]:
                         hlen += len(c["Q"]) + len(c["A"])
                         if hlen > MAX_TOKEN/2:
