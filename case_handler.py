@@ -16,7 +16,7 @@ def analyse_wrongdoing(my_case:LegalCase, query:str):
         res=query_docstore(law_db, query+" 触及 "+l+" 的那些具体条款？在回答中引用具体条款内容。")
         print(res)
 
-# Give text to create a in memory vector DB and answer query based on its content
+# Given text to create a in memory vector DB and answer query based on its content
 def init_case(text):
     chunks = []
     text_splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100, separators=['.', '\n\n', '\n', ',', '。','，'])
