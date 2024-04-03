@@ -73,27 +73,25 @@ async def handler(websocket):
     while True:
         try:
             async for message in websocket:
-                print(message)
                 event = json.loads(message)
-                if event["type"] == "query":
-                    params = event["parameters"]
-                    if params["llm"] == "openai":
-                        CHAT_LLM.temperature = float(params["temperature"])
-                    elif params["llm"] == "qianfan":
-                        pass
+                params = event["parameters"]
+                if params["llm"] == "openai":
+                    CHAT_LLM.temperature = float(params["temperature"])
+                elif params["llm"] == "qianfan":
+                    pass
 
-                    hlen = 0
-                    arrMsg = []
-                    for c in event["query"]["history"]:
+                hlen = 0
+                if "history" in event["input"]:
+                    for c in event["input"]["history"]:
                         hlen += len(c["Q"]) + len(c["A"])
                         if hlen > MAX_TOKEN/2:
                             break
                         else:
                             memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
 
-                    for chunk in chain.stream(event["query"]["input"]):
-                        print(chunk, end="", flush=True)    # chunk size can be big
-                    await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
+                for chunk in chain.stream(event["input"]["query"]):
+                    print(chunk, end="", flush=True)    # chunk size can be big
+                await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
         except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
