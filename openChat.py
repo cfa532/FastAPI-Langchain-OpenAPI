@@ -80,6 +80,9 @@ async def handler(websocket):
                 elif params["llm"] == "qianfan":
                     pass
 
+                if params["client"] == "mobile":
+                    CHAT_LLM.callbacks = [StreamingStdOutCallbackHandler()]
+
                 hlen = 0
                 if "history" in event["input"]:
                     # user server history if history key is not present in user request
