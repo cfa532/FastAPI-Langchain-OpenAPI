@@ -1,29 +1,20 @@
-import asyncio, websockets, os, sys, json
+import asyncio, websockets, os, sys, json, ssl
 from typing import Any
 from langchain_openai import ChatOpenAI
 from langchain_community.vectorstores import Chroma
 from langchain.memory import ConversationBufferWindowMemory, ConversationBufferMemory
 from langchain.chains import ConversationChain
-from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
-from dotenv import load_dotenv
-
-from langchain_core.messages import (
-    AIMessage,
-    BaseMessage,
-    HumanMessage,
-    get_buffer_string,
-)
-
-load_dotenv()
-MAX_TOKEN = 4096
-
-from typing import Any, Dict, List, Union
 from langchain_core.messages import get_buffer_string
 from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.human import HumanMessage
-from langchain.memory.chat_memory import BaseChatMemory
+from dotenv import load_dotenv
+
+load_dotenv()
+MAX_TOKEN = 4096
+# ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
+# ssl_context.load_cert_chain(certfile='leither.uk.orig.pem', keyfile='leither.uk.cert.pem')
 
 def trim(messages, max_len):
     if sum([len(m.content) for m in messages]) > max_len:
@@ -73,6 +64,7 @@ async def handler(websocket):
     while True:
         try:
             async for message in websocket:
+                print(message)
                 event = json.loads(message)
                 params = event["parameters"]
                 if params["llm"] == "openai":
@@ -80,8 +72,8 @@ async def handler(websocket):
                 elif params["llm"] == "qianfan":
                     pass
 
-                if params["client"] == "mobile":
-                    CHAT_LLM.callbacks = [StreamingStdOutCallbackHandler()]
+                # if params["client"] == "mobile":
+                #     CHAT_LLM.streaming = False
 
                 hlen = 0
                 if "history" in event["input"]:
@@ -93,9 +85,10 @@ async def handler(websocket):
                             break
                         else:
                             memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
-
-                for chunk in chain.stream(event["input"]["query"]):
-                    print(chunk, end="", flush=True)    # chunk size can be big
+                chunks = []
+                async for chunk in chain.astream(event["input"]["query"]):
+                    chunks.append(chunk)
+                    print(chunk, end="|", flush=True)    # chunk size can be big
                 await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
         except websockets.exceptions.WebSocketException as e:
@@ -108,7 +101,8 @@ async def handler(websocket):
                 pass
 
 async def main():
-    async with websockets.serve(handler, "", 5050):
+    # async with websockets.serve(handler, "", 8505, ssl=ssl_context):
+    async with websockets.serve(handler, "", 8505):
         await asyncio.Future()
 
 if __name__ == "__main__":
