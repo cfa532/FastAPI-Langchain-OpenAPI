@@ -58,9 +58,20 @@ async def handler(websocket):
     chain = ConversationChain(llm=CHAT_LLM, memory=memory, verbose=True)
     chain.output_parser=StrOutputParser()
 
-    # blacklist = ["172.31.9.52"]
-    # if websocket.remote_address[0] in blacklist:
-    #     return
+###########################################
+### Format of input
+# {
+#     "input": {
+#         "query": "content of the query",
+#         "prompt": "instruction of how to execute the query, such as createa a summary",
+#         "history": "previous bouts of conversations"
+#     },
+#     "parameters": {
+#         "llm": "openai",    # LLM to be userd. Different LLM comes with different other parameters
+#         "temperatue": "0.0"
+#     }
+# }
+############################################
     
     while True:
         try:
@@ -91,14 +102,22 @@ async def handler(websocket):
                 if "secretary" in event["input"]:
                     # the request is from secretary APP. If it is too long, seperate it.
                     splitter = RecursiveCharacterTextSplitter(chunk_size=3072, chunk_overlap=200)
-                    chunks_in = splitter.create_documents([event["input"]["secretary"]])
+                    chunks_in = splitter.create_documents([event["input"]["query"]])
                     resp = ""
                     for ci in chunks_in:
-                        async for chunk in ci.page_content:
+                        async for chunk in chain.astream(event["input"]["prompt"] + ci.page_content):
                             chunks.append(chunk)
                             print(chunk, end="|", flush=True)    # chunk size can be big
                         resp += chunk["response"]+" "
                     await websocket.send(json.dumps({"type": "result", "answer": resp}))
+
+                    # resp = ""
+                    # for ci in chunks_in:
+                    #     async for chunk in chain.astream("分段加标点改错别字。 "+ ci.page_content):
+                    #         chunks.append(chunk)
+                    #         print(chunk, end="|", flush=True)    # chunk size can be big
+                    #     resp += chunk["response"]+" "
+                    # await websocket.send(json.dumps({"type": "result", "answer": resp}))
 
                 elif "query" in event["input"]:
                     async for chunk in chain.astream(event["input"]["query"]):
