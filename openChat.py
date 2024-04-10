@@ -9,6 +9,7 @@ from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHan
 from langchain_core.messages import get_buffer_string
 from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.human import HumanMessage
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -86,10 +87,24 @@ async def handler(websocket):
                         else:
                             memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
                 chunks = []
-                async for chunk in chain.astream(event["input"]["query"]):
-                    chunks.append(chunk)
-                    print(chunk, end="|", flush=True)    # chunk size can be big
-                await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
+
+                if "secretary" in event["input"]:
+                    # the request is from secretary APP. If it is too long, seperate it.
+                    splitter = RecursiveCharacterTextSplitter(chunk_size=3072, chunk_overlap=200)
+                    chunks_in = splitter.create_documents([event["input"]["secretary"]])
+                    resp = ""
+                    for ci in chunks_in:
+                        async for chunk in ci.page_content:
+                            chunks.append(chunk)
+                            print(chunk, end="|", flush=True)    # chunk size can be big
+                        resp += chunk["response"]+" "
+                    await websocket.send(json.dumps({"type": "result", "answer": resp}))
+
+                elif "query" in event["input"]:
+                    async for chunk in chain.astream(event["input"]["query"]):
+                        chunks.append(chunk)
+                        print(chunk, end="|", flush=True)    # chunk size can be big
+                    await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
         except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
