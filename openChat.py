@@ -81,6 +81,7 @@ async def handler(websocket):
                 params = event["parameters"]
                 if params["llm"] == "openai":
                     CHAT_LLM.temperature = float(params["temperature"])
+                    CHAT_LLM.model = params["model"]
                 elif params["llm"] == "qianfan":
                     pass
 
