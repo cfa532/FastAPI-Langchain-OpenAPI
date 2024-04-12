@@ -1,15 +1,15 @@
 import asyncio, websockets, os, sys, json, ssl
 from typing import Any
 from langchain_openai import ChatOpenAI
-from langchain_community.vectorstores import Chroma
 from langchain.memory import ConversationBufferWindowMemory, ConversationBufferMemory
-from langchain.chains import ConversationChain
+from langchain.chains import ConversationChain, LLMChain
+from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser, JsonOutputParser
 from langchain_core.callbacks.streaming_stdout import StreamingStdOutCallbackHandler
 from langchain_core.messages import get_buffer_string
 from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.human import HumanMessage
-from langchain_text_splitters import RecursiveCharacterTextSplitter
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -52,12 +52,6 @@ async def handler(websocket):
     #             ai_prefix=self.ai_prefix,
     #         )
 
-    CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", streaming=True,
-                        callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
-    memory = ConversationBufferMemory(return_messages=False)
-    chain = ConversationChain(llm=CHAT_LLM, memory=memory, verbose=True)
-    chain.output_parser=StrOutputParser()
-
 ###########################################
 ### Format of input
 # {
@@ -73,6 +67,8 @@ async def handler(websocket):
 # }
 ############################################
     
+    CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", streaming=True,
+                        callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
     while True:
         try:
             async for message in websocket:
@@ -81,46 +77,49 @@ async def handler(websocket):
                 params = event["parameters"]
                 if params["llm"] == "openai":
                     CHAT_LLM.temperature = float(params["temperature"])
-                    CHAT_LLM.model = params["model"]
+                    CHAT_LLM.model_name = params["model"]
                 elif params["llm"] == "qianfan":
                     pass
 
                 # if params["client"] == "mobile":
                 #     CHAT_LLM.streaming = False
 
-                hlen = 0
-                if "history" in event["input"]:
-                    # user server history if history key is not present in user request
-                    memory.clear()  # do not use memory on serverside. Add chat history kept by client.
-                    for c in event["input"]["history"]:
-                        hlen += len(c["Q"]) + len(c["A"])
-                        if hlen > MAX_TOKEN/2:
-                            break
-                        else:
-                            memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
-                chunks = []
-
                 if "secretary" in event["input"]:
                     # the request is from secretary APP. If it is too long, seperate it.
                     splitter = RecursiveCharacterTextSplitter(chunk_size=3072, chunk_overlap=200)
                     chunks_in = splitter.create_documents([event["input"]["query"]])
+
+                    # prompt is sent from client, so that it can be customized.
+                    prompt = PromptTemplate(input_variables=["text"],
+                                            prompt=event["input"]["prompt"] + """
+                                            {text} 
+                                            SUMMARY:
+                                            """)
+                    chain = LLMChain(llm=CHAT_LLM, verbose=True, prompt=prompt, output_parser=StrOutputParser())
                     resp = ""
                     for ci in chunks_in:
-                        async for chunk in chain.astream(event["input"]["prompt"] + ci.page_content):
+                        chunks = []
+                        async for chunk in chain.astream({"text": ci.page_content}):
                             chunks.append(chunk)
                             print(chunk, end="|", flush=True)    # chunk size can be big
                         resp += chunk["response"]+" "
                     await websocket.send(json.dumps({"type": "result", "answer": resp}))
 
-                    # resp = ""
-                    # for ci in chunks_in:
-                    #     async for chunk in chain.astream("分段加标点改错别字。 "+ ci.page_content):
-                    #         chunks.append(chunk)
-                    #         print(chunk, end="|", flush=True)    # chunk size can be big
-                    #     resp += chunk["response"]+" "
-                    # await websocket.send(json.dumps({"type": "result", "answer": resp}))
-
                 elif "query" in event["input"]:
+                    memory = ConversationBufferMemory(return_messages=False)
+                    if "history" in event["input"]:
+                        # user server history if history key is not present in user request
+                        memory.clear()  # do not use memory on serverside. Add chat history kept by client.
+                        hlen = 0
+                        for c in event["input"]["history"]:
+                            hlen += len(c["Q"]) + len(c["A"])
+                            if hlen > MAX_TOKEN/2:
+                                break
+                            else:
+                                memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
+
+                    chain = ConversationChain(llm=CHAT_LLM, memory=memory, verbose=True, output_parser=StrOutputParser())
+                    chunks = []
                     async for chunk in chain.astream(event["input"]["query"]):
                         chunks.append(chunk)
                         print(chunk, end="|", flush=True)    # chunk size can be big
