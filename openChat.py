@@ -91,7 +91,7 @@ async def handler(websocket):
 
                     # prompt is sent from client, so that it can be customized.
                     prompt = PromptTemplate(input_variables=["text"],
-                                            prompt=event["input"]["prompt"] + """
+                                            prompt=event["input"]["prompt"] + """  
                                             {text} 
                                             SUMMARY:
                                             """)
