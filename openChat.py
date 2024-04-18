@@ -10,19 +10,13 @@ from langchain_core.messages import get_buffer_string
 from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.human import HumanMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
+from langchain.globals import set_verbose
 from dotenv import load_dotenv
-
+set_verbose(True)
 load_dotenv()
 MAX_TOKEN = 4096
 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 # ssl_context.load_cert_chain(certfile='leither.uk.orig.pem', keyfile='leither.uk.cert.pem')
-
-def trim(messages, max_len):
-    if sum([len(m.content) for m in messages]) > max_len:
-        messages.pop(0)
-        trim(messages, max_len)
-    else:
-        return
 
 async def handler(websocket):
     class MyStreamingHandler(StreamingStdOutCallbackHandler):
@@ -31,26 +25,8 @@ async def handler(websocket):
 
         async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
             sys.stdout.write(token)
-            await websocket.send(json.dumps({"type": "stream", "data": token}))
+            await websocket.send(json.dumps({"type": "stream", "data": token}))     # streaming message to client
             sys.stdout.flush()
-
-    # class MyConversationWindowMemory(ConversationBufferWindowMemory):
-    #     def __init__(self) -> None:
-    #         super().__init__()
-
-    #     @property
-    #     def buffer_as_str(self) -> str:
-    #         """Exposes the buffer as a string in case return_messages is True."""
-    #         messages = self.chat_memory.messages[-self.k * 2 :] if self.k > 0 else []
-            
-    #         """remove the early messages to keep buffer from exceeding max token length"""
-    #         trim(messages, MAX_TOKEN/2)
-
-    #         return get_buffer_string(
-    #             messages,
-    #             human_prefix=self.human_prefix,
-    #             ai_prefix=self.ai_prefix,
-    #         )
 
 ###########################################
 ### Format of input
@@ -72,7 +48,6 @@ async def handler(websocket):
     while True:
         try:
             async for message in websocket:
-                print(message)
                 event = json.loads(message)
                 params = event["parameters"]
                 if params["llm"] == "openai":
@@ -84,25 +59,27 @@ async def handler(websocket):
                 # if params["client"] == "mobile":
                 #     CHAT_LLM.streaming = False
 
-                if "secretary" in event["input"]:
+                if "rawtext" in event["input"]:
+                    print(message)
                     # the request is from secretary APP. If it is too long, seperate it.
                     splitter = RecursiveCharacterTextSplitter(chunk_size=3072, chunk_overlap=200)
-                    chunks_in = splitter.create_documents([event["input"]["query"]])
+                    chunks_in = splitter.create_documents([event["input"]["rawtext"]])
 
                     # prompt is sent from client, so that it can be customized.
                     prompt = PromptTemplate(input_variables=["text"],
-                                            prompt=event["input"]["prompt"] + """  
-                                            {text} 
-                                            SUMMARY:
-                                            """)
-                    chain = LLMChain(llm=CHAT_LLM, verbose=True, prompt=prompt, output_parser=StrOutputParser())
+                                            template=event["input"]["prompt"] + """
+
+                        {text} 
+
+                        SUMMARY:
+                        """)
+                    # chain = LLMChain(llm=CHAT_LLM, prompt=prompt, verbose=True)
+                    chain = prompt | CHAT_LLM
                     resp = ""
                     for ci in chunks_in:
-                        chunks = []
                         async for chunk in chain.astream({"text": ci.page_content}):
-                            chunks.append(chunk)
-                            print(chunk, end="|", flush=True)    # chunk size can be big
-                        resp += chunk["response"]+" "
+                            print(chunk.content, end="|", flush=True)    # chunk size can be big
+                            resp += chunk.content
                     await websocket.send(json.dumps({"type": "result", "answer": resp}))
 
                 elif "query" in event["input"]:
@@ -118,7 +95,7 @@ async def handler(websocket):
                             else:
                                 memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
 
-                    chain = ConversationChain(llm=CHAT_LLM, memory=memory, verbose=True, output_parser=StrOutputParser())
+                    chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                     chunks = []
                     async for chunk in chain.astream(event["input"]["query"]):
                         chunks.append(chunk)
