@@ -43,16 +43,17 @@ async def handler(websocket):
 # }
 ############################################
     
-    CHAT_LLM = ChatOpenAI(temperature=0, model="gpt-4", streaming=True,
-                        callbacks=[MyStreamingHandler()])     # ChatOpenAI cannot have max_token=-1
     while True:
         try:
             async for message in websocket:
                 event = json.loads(message)
                 params = event["parameters"]
                 if params["llm"] == "openai":
-                    CHAT_LLM.temperature = float(params["temperature"])
-                    CHAT_LLM.model_name = params["model"]
+                    CHAT_LLM = ChatOpenAI(
+                        temperature=float(params["temperature"]),
+                        model=params["model"],
+                        streaming=True
+                        )     # ChatOpenAI cannot have max_token=-1
                 elif params["llm"] == "qianfan":
                     pass
 
@@ -80,9 +81,17 @@ async def handler(websocket):
                         async for chunk in chain.astream({"text": ci.page_content}):
                             print(chunk.content, end="|", flush=True)    # chunk size can be big
                             resp += chunk.content
+                            await websocket.send(json.dumps({"type": "stream", "data": chunk.content}))
                     await websocket.send(json.dumps({"type": "result", "answer": resp}))
 
                 elif "query" in event["input"]:
+                    CHAT_LLM.callbacks=[MyStreamingHandler()]
+                    # CHAT_LLM = ChatOpenAI(
+                    #     temperature=float(params["temperature"]),
+                    #     model=params["model"],
+                    #     streaming=True,
+                    #     callbacks=[MyStreamingHandler()]
+                    #     )     # ChatOpenAI cannot have max_token=-1
                     memory = ConversationBufferMemory(return_messages=False)
                     if "history" in event["input"]:
                         # user server history if history key is not present in user request
@@ -96,9 +105,7 @@ async def handler(websocket):
                                 memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
 
                     chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                    chunks = []
                     async for chunk in chain.astream(event["input"]["query"]):
-                        chunks.append(chunk)
                         print(chunk, end="|", flush=True)    # chunk size can be big
                     await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
