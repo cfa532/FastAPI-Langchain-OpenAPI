@@ -11,16 +11,10 @@ from langchain_core.messages.ai import AIMessage
 from langchain_core.messages.human import HumanMessage
 from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.globals import set_verbose
-from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 set_verbose(True)
 load_dotenv()
-
-MAX_TOKEN = {
-    "gpt-4": 4096,
-    "gpt-4-turbo": 8192
-}
-
+MAX_TOKEN = 4096
 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 # ssl_context.load_cert_chain(certfile='leither.uk.orig.pem', keyfile='leither.uk.cert.pem')
 
@@ -77,50 +71,43 @@ async def handler(websocket):
                                             template=event["input"]["prompt"] + """
 
                         {text} 
+
+                        SUMMARY:
                         """)
-                    # SUMMARY:
                     # chain = LLMChain(llm=CHAT_LLM, prompt=prompt, verbose=True)
                     chain = prompt | CHAT_LLM
                     resp = ""
-                    with get_cost_tracker_callback(params["model"]) as cb:
-                        for ci in chunks_in:
-                            async for chunk in chain.astream({"text": ci.page_content}):
-                                print(chunk.content, end="|", flush=True)    # chunk size can be big
-                                resp += chunk.content
-                                await websocket.send(json.dumps({"type": "stream", "data": chunk.content}))
-                        print(cb)
-                        sys.stdout.flush()
-                        await websocket.send(json.dumps({
-                            "type": "result",
-                            "answer": resp,
-                            "tokens": cb.total_tokens,
-                            "cost": cb.total_cost}))
+                    for ci in chunks_in:
+                        async for chunk in chain.astream({"text": ci.page_content}):
+                            print(chunk.content, end="|", flush=True)    # chunk size can be big
+                            resp += chunk.content
+                            await websocket.send(json.dumps({"type": "stream", "data": chunk.content}))
+                    await websocket.send(json.dumps({"type": "result", "answer": resp}))
 
                 elif "query" in event["input"]:
                     CHAT_LLM.callbacks=[MyStreamingHandler()]
+                    # CHAT_LLM = ChatOpenAI(
+                    #     temperature=float(params["temperature"]),
+                    #     model=params["model"],
+                    #     streaming=True,
+                    #     callbacks=[MyStreamingHandler()]
+                    #     )     # ChatOpenAI cannot have max_token=-1
                     memory = ConversationBufferMemory(return_messages=False)
-                    if event["input"].get("history"):
+                    if "history" in event["input"]:
                         # user server history if history key is not present in user request
                         memory.clear()  # do not use memory on serverside. Add chat history kept by client.
                         hlen = 0
                         for c in event["input"]["history"]:
                             hlen += len(c["Q"]) + len(c["A"])
-                            if hlen > MAX_TOKEN[params["model"]]/2:
+                            if hlen > MAX_TOKEN/2:
                                 break
                             else:
                                 memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
 
-                    with get_cost_tracker_callback(params["model"]) as cb:
-                        chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                        async for chunk in chain.astream(event["input"]["query"]):
-                            print(chunk, end="|", flush=True)    # chunk size can be big
-                        print(cb)
-                        sys.stdout.flush()
-                        await websocket.send(json.dumps({
-                            "type": "result",
-                            "answer": chunk["response"], 
-                            "tokens": cb.total_tokens,
-                            "cost": cb.total_cost}))
+                    chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
+                    async for chunk in chain.astream(event["input"]["query"]):
+                        print(chunk, end="|", flush=True)    # chunk size can be big
+                    await websocket.send(json.dumps({"type": "result", "answer": chunk["response"]}))
 
         except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
