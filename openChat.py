@@ -34,7 +34,7 @@ async def handler(websocket):
             await websocket.send(json.dumps({"type": "stream", "data": token}))     # streaming message to client
             sys.stdout.flush()
 
-###########################################
+###########################################################################################
 ### Format of input
 # {
 #     "input": {
@@ -45,9 +45,10 @@ async def handler(websocket):
 #     "parameters": {
 #         "llm": "openai",    # LLM to be userd. Different LLM comes with different other parameters
 #         "temperatue": "0.0"
+#         "client": "mobile"
 #     }
 # }
-############################################
+############################################################################################
     
     while True:
         try:
@@ -124,7 +125,8 @@ async def handler(websocket):
 
         except websockets.exceptions.WebSocketException as e:
             # keep abnormal messages from logging
-            print("Error:", type(e), e)
+            # print("Error:", type(e), e)
+            pass
         finally:
             try:
                 await websocket.close()
