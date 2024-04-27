@@ -42,7 +42,8 @@ class CostTrackerCallback(OpenAICallbackHandler):
 
         # update shared state behind lock
         with self._lock:
-            self.total_cost += prompt_cost + completion_cost
+            self.total_cost = prompt_cost + completion_cost
+            # self.total_cost += prompt_cost + completion_cost
             self.total_tokens = self.prompt_tokens + self.completion_tokens
             self.successful_requests += 1
 

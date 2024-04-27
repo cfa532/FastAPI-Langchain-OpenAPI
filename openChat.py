@@ -1,4 +1,5 @@
 import asyncio, websockets, os, sys, json, ssl
+from datetime import datetime
 from typing import Any
 from langchain_openai import ChatOpenAI
 from langchain.memory import ConversationBufferWindowMemory, ConversationBufferMemory
@@ -20,6 +21,7 @@ MAX_TOKEN = {
     "gpt-4": 4096,
     "gpt-4-turbo": 8192
 }
+start_time = 0
 
 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 # ssl_context.load_cert_chain(certfile='leither.uk.orig.pem', keyfile='leither.uk.cert.pem')
@@ -53,6 +55,7 @@ async def handler(websocket):
     while True:
         try:
             async for message in websocket:
+                start_time = datetime.now()
                 event = json.loads(message)
                 params = event["parameters"]
                 if params["llm"] == "openai":
@@ -63,9 +66,6 @@ async def handler(websocket):
                         )     # ChatOpenAI cannot have max_token=-1
                 elif params["llm"] == "qianfan":
                     pass
-
-                # if params["client"] == "mobile":
-                #     CHAT_LLM.streaming = False
 
                 if "rawtext" in event["input"]:
                     print(message)
@@ -89,7 +89,7 @@ async def handler(websocket):
                                 print(chunk.content, end="|", flush=True)    # chunk size can be big
                                 resp += chunk.content
                                 await websocket.send(json.dumps({"type": "stream", "data": chunk.content}))
-                        print(cb)
+                        print('\n', cb)
                         sys.stdout.flush()
                         await websocket.send(json.dumps({
                             "type": "result",
@@ -115,7 +115,7 @@ async def handler(websocket):
                         chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                         async for chunk in chain.astream(event["input"]["query"]):
                             print(chunk, end="|", flush=True)    # chunk size can be big
-                        print(cb)
+                        print('\n', cb)
                         sys.stdout.flush()
                         await websocket.send(json.dumps({
                             "type": "result",
@@ -124,14 +124,11 @@ async def handler(websocket):
                             "cost": cb.total_cost}))
 
         except websockets.exceptions.WebSocketException as e:
-            # keep abnormal messages from logging
-            # print("Error:", type(e), e)
-            pass
-        finally:
             try:
                 await websocket.close()
-            except NameError:
-                pass
+            finally:
+                print("Websocket closed abnormally", e)
+                break
 
 async def main():
     # async with websockets.serve(handler, "", 8505, ssl=ssl_context):
