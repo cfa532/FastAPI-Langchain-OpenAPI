@@ -24,12 +24,16 @@ class CostTrackerCallback(OpenAICallbackHandler):
         encoding = tiktoken.get_encoding("cl100k_base")
         prompts_string = ''.join(prompts)
         self.prompt_tokens = len(encoding.encode(prompts_string))
+        self.completion_tokens = 0
+
+    async def on_llm_new_token(self, token: str, **kwargs: Any) -> None:
+        self.completion_tokens += 1
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         """Run when chain ends running."""
         text_response = response.generations[0][0].text
         encoding = tiktoken.get_encoding("cl100k_base")
-        self.completion_tokens = len(encoding.encode(text_response))
+        # self.completion_tokens = len(encoding.encode(text_response))
         model_name = standardize_model_name(self.model_name)
         if model_name in MODEL_COST_PER_1K_TOKENS:
             completion_cost = get_openai_token_cost_for_model(
@@ -42,8 +46,8 @@ class CostTrackerCallback(OpenAICallbackHandler):
 
         # update shared state behind lock
         with self._lock:
-            self.total_cost = prompt_cost + completion_cost
-            # self.total_cost += prompt_cost + completion_cost
+            # self.total_cost = prompt_cost + completion_cost
+            self.total_cost += prompt_cost + completion_cost
             self.total_tokens = self.prompt_tokens + self.completion_tokens
             self.successful_requests += 1
 

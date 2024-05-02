@@ -62,7 +62,8 @@ async def handler(websocket):
                     CHAT_LLM = ChatOpenAI(
                         temperature=float(params["temperature"]),
                         model=params["model"],
-                        streaming=True
+                        streaming=True,
+                        verbose=True
                         )     # ChatOpenAI cannot have max_token=-1
                 elif params["llm"] == "qianfan":
                     pass
