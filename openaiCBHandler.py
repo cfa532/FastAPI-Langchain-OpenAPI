@@ -8,8 +8,15 @@ from langchain_community.callbacks.openai_info import standardize_model_name, MO
     get_openai_token_cost_for_model, OpenAICallbackHandler
 from langchain_core.outputs import LLMResult
 
-class CostTrackerCallback(OpenAICallbackHandler):
+MY_MODEL_COST_PER_1K_TOKENS = MODEL_COST_PER_1K_TOKENS | {
+    # GPT-4 input
+    "gpt-4-turbo": 0.01,
 
+    # GPT-4 output
+    "gpt-4-turbo-completion": 0.03,
+}
+
+class CostTrackerCallback(OpenAICallbackHandler):
     def __init__(self, model_name: str) -> None:
         super().__init__()
         self.model_name = model_name
@@ -35,7 +42,7 @@ class CostTrackerCallback(OpenAICallbackHandler):
         encoding = tiktoken.get_encoding("cl100k_base")
         # self.completion_tokens = len(encoding.encode(text_response))
         model_name = standardize_model_name(self.model_name)
-        if model_name in MODEL_COST_PER_1K_TOKENS:
+        if model_name in MY_MODEL_COST_PER_1K_TOKENS:
             completion_cost = get_openai_token_cost_for_model(
                 model_name, self.completion_tokens, is_completion=True
             )
