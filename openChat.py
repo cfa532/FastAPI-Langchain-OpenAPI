@@ -21,7 +21,6 @@ MAX_TOKEN = {
     "gpt-4": 4096,
     "gpt-4-turbo": 8192
 }
-start_time = 0
 
 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
 # ssl_context.load_cert_chain(certfile='leither.uk.orig.pem', keyfile='leither.uk.cert.pem')
@@ -45,9 +44,10 @@ async def handler(websocket):
 #         "history": "previous bouts of conversations"
 #     },
 #     "parameters": {
-#         "llm": "openai",    # LLM to be userd. Different LLM comes with different other parameters
+#         "llm": "openai",    # LLM to be userd. Different LLM comes with different model parameters
 #         "temperatue": "0.0"
 #         "client": "mobile"
+#         "model": "gpt-4"
 #     }
 # }
 ############################################################################################
@@ -55,7 +55,6 @@ async def handler(websocket):
     while True:
         try:
             async for message in websocket:
-                start_time = datetime.now()
                 event = json.loads(message)
                 params = event["parameters"]
                 if params["llm"] == "openai":
@@ -75,18 +74,19 @@ async def handler(websocket):
                     chunks_in = splitter.create_documents([event["input"]["rawtext"]])
 
                     # prompt is sent from client, so that it can be customized.
-                    prompt = PromptTemplate(input_variables=["text"],
-                                            template=event["input"]["prompt"] + """
+                    # prompt = PromptTemplate(input_variables=["text"],
+                    #                         template=event["input"]["prompt"] + """
 
-                        {text} 
-                        """)
+                    #     {text} 
+                    #     """)
                     # SUMMARY:
                     # chain = LLMChain(llm=CHAT_LLM, prompt=prompt, verbose=True)
-                    chain = prompt | CHAT_LLM
+                    # chain = prompt | CHAT_LLM
+                    chain = CHAT_LLM
                     resp = ""
                     with get_cost_tracker_callback(params["model"]) as cb:
                         for ci in chunks_in:
-                            async for chunk in chain.astream({"text": ci.page_content}):
+                            async for chunk in chain.astream(event["input"]["prompt"] + " "+ ci.page_content):
                                 print(chunk.content, end="|", flush=True)    # chunk size can be big
                                 resp += chunk.content
                                 await websocket.send(json.dumps({"type": "stream", "data": chunk.content}))
@@ -126,7 +126,7 @@ async def handler(websocket):
 
         except websockets.exceptions.WebSocketException as e:
             try:
-                await websocket.close()
+                websocket.close()
             finally:
                 print("Websocket closed abnormally", e)
                 break
