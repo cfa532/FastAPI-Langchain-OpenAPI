@@ -2,3 +2,5 @@ fastapi
 uvicorn
 PyJWT
 hprose
+python-jose
+passlib
