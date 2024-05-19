@@ -120,8 +120,11 @@ async def register_user(user: UserIn):
     # return False
 
 @app.get("/ajchat/users", response_model=UserOut)
-async def get_user_by_id(current_user: Annotated[UserOut, Depends(get_current_user)]):
-    return current_user
+async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
+    if current_user.role != "admin" and current_user.username != id:
+        raise HTTPException(status_code=400, detail="Not admin")
+    return get_user(id)
+    # return current_user
 
 @app.get("/ajchat/users/all", response_model=List[UserOut])
 async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
@@ -136,12 +139,13 @@ async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depe
     return delete_user(username)
 
 @app.put("/ajchat/users")
-async def update_user_by_id(user: Annotated[UserIn, Depends()], current_user: Annotated[UserOut, Depends(get_current_user)]):
+async def update_user_by_id(user: UserIn, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != user.username:
         raise HTTPException(status_code=400, detail="Not admin")
+    #
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db["hashed_password"] = get_password_hash(user.password)  # save hashed password in DB
-    return update_user(user_in_db)
+    return update_user(UserInDB(**user_in_db))
 
 @app.get("/")
 async def get():

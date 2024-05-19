@@ -15,7 +15,6 @@ GPT_4_Turbo_Tokens = 10000
 
 mid = client.MMCreate(api.sid, api.uid, "", "ajchat app db", 2, 0x07276705)
 print("mid  ", mid)
-mmsid = client.MMOpen(api.sid, mid, "last")
 
 def register_in_db(user: UserInDB):
     print(user)
@@ -24,12 +23,12 @@ def register_in_db(user: UserInDB):
         mmsid_cur = client.MMOpen(api.sid, mid, "cur")
         client.Hset(mmsid_cur, userAccountKey, user.username, json.dumps(user.model_dump()))
         client.MMBackup(api.sid, mid, "", "delRef=true")
-        mmsid = client.MMOpen(api.sid, mid, "last")
         return True
     else:
         return False
     
 def get_user(username):
+    mmsid = client.MMOpen(api.sid, mid, "last")
     user = client.Hget(mmsid, userAccountKey, username)
     if not user:
         return None
@@ -37,9 +36,11 @@ def get_user(username):
     return UserInDB(**user)
 
 def get_users():
+    mmsid = client.MMOpen(api.sid, mid, "last")
     return [UserInDB(**json.loads(user.value)) for user in client.Hgetall(mmsid, userAccountKey)]
 
 def update_user(user: UserInDB):
+    mmsid = client.MMOpen(api.sid, mid, "last")
     user_in_db = UserInDB(client.Hget(mmsid, userAccountKey, user.username))
     for attr in vars(user):
         setattr(user_in_db, attr, getattr(user, attr))
