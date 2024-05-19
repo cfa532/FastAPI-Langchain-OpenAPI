@@ -1,4 +1,4 @@
-import json, sys
+import json, sys, bcrypt
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect, APIRouter
@@ -7,14 +7,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
-from passlib.apps import custom_app_context as pwd_context
-from passlib.context import CryptContext
 from langchain_openai import ChatOpenAI
 from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 load_dotenv()
 
-from leither_api import get_user, register, delete_user, update_user, get_users
+from leither_api import get_user, register_in_db, delete_user, update_user, get_users
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 
 # to get a string like this run:
@@ -34,12 +32,10 @@ class TokenData(BaseModel):
 class User(UserInDB):
     pass
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+# router = APIRouter(prefix="/ajchat")
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-router = APIRouter(prefix="/ajchat")
 app = FastAPI()
-app.include_router(router)
-
+# app.include_router(router)
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -50,17 +46,21 @@ app.add_middleware(
 )
 
 def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
+    return bcrypt.checkpw(password = plain_password.encode('utf-8') , hashed_password = hashed_password.encode('utf-8'))
 
 def get_password_hash(password):
-    return pwd_context.hash(password)
+    pwd_bytes = password.encode('utf-8')
+    salt = bcrypt.gensalt()
+    hashed_password = bcrypt.hashpw(password=pwd_bytes, salt=salt)
+    return hashed_password
+    # return pwd_context.hash(password)
 
 def authenticate_user(username: str, password: str):
     user = get_user(username)
     if not user:
-        return False
+        return None
     if not verify_password(password, user.hashed_password):
-        return False
+        return None
     return user
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
@@ -92,10 +92,10 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         raise credentials_exception
     return user
 
-@app.post("/token")
+@app.post("/ajchat/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    print("form data", form_data)
+    print("form data", form_data.username, form_data.client_id)
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -108,17 +108,16 @@ async def login_for_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     token = Token(access_token=access_token, token_type="Bearer")
-    return {"token": token, "user": user}
-
-# @app.post("/authenticate")
-# async def authenticate_user(formd_data: Annotated[OAuth2PasswordRequestForm, Depends()], token: Annotated[str, Depends(oauth2_scheme)]):
-#     print(formd_data)
-#     return get_user(formd_data.username)
+    user_out = user.model_dump(exclude=["hashed_password"])
+    print(user_out)
+    return {"token": token, "user": user_out}
 
 @app.post("/ajchat/users/register")
 async def register_user(user: UserIn):
-    print(user)
-    return register(user)
+    user_in_db = user.model_dump(exclude=["password"])
+    user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
+    return register_in_db(UserInDB(**user_in_db))
+    # return False
 
 @app.get("/users", response_model=UserOut)
 async def get_user_by_id(current_user: Annotated[UserOut, Depends(get_current_user)]):
@@ -140,7 +139,9 @@ async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depe
 async def update_user_by_id(user: Annotated[UserIn, Depends()], current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != user.username:
         raise HTTPException(status_code=400, detail="Not admin")
-    return update_user(user)
+    user_in_db = user.model_dump(exclude=["password"])
+    user_in_db["hashed_password"] = get_password_hash(user.password)  # save hashed password in DB
+    return update_user(user_in_db)
 
 @app.get("/")
 async def get():
