@@ -37,7 +37,7 @@ def get_user(username):
     return UserInDB(**user)
 
 def get_users():
-    return [UserOut(user) for user in client.Hgetall(mmsid, userAccountKey)]
+    return [UserInDB(**json.loads(user.value)) for user in client.Hgetall(mmsid, userAccountKey)]
 
 def update_user(user: UserInDB):
     user_in_db = UserInDB(client.Hget(mmsid, userAccountKey, user.username))

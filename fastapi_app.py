@@ -119,23 +119,23 @@ async def register_user(user: UserIn):
     return register_in_db(UserInDB(**user_in_db))
     # return False
 
-@app.get("/users", response_model=UserOut)
+@app.get("/ajchat/users", response_model=UserOut)
 async def get_user_by_id(current_user: Annotated[UserOut, Depends(get_current_user)]):
     return current_user
 
-@app.get("/users/all", response_model=List[UserOut])
+@app.get("/ajchat/users/all", response_model=List[UserOut])
 async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin":
         raise HTTPException(status_code=400, detail="Not admin")
     return get_users()
 
-@app.delete("/users")
+@app.delete("/ajchat/users")
 async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin":
         raise HTTPException(status_code=400, detail="Not admin")
     return delete_user(username)
 
-@app.put("/users")
+@app.put("/ajchat/users")
 async def update_user_by_id(user: Annotated[UserIn, Depends()], current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != user.username:
         raise HTTPException(status_code=400, detail="Not admin")
@@ -147,7 +147,7 @@ async def update_user_by_id(user: Annotated[UserIn, Depends()], current_user: An
 async def get():
     return HTMLResponse("Hello world.")
 
-@app.websocket("/ws/")
+@app.websocket("/ajchat/ws/")
 async def websocket_endpoint(websocket: WebSocket):
     await connectionManager.connect(websocket)
     try:
