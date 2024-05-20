@@ -12,7 +12,7 @@ from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 load_dotenv()
 
-from leither_api import get_user, register_in_db, delete_user, update_user, get_users
+from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 
 # to get a string like this run:
@@ -109,8 +109,7 @@ async def login_for_access_token(
     )
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
-    print(user_out)
-    return {"token": token, "user": user_out}
+    return {"token": token, "user": user_out, "session": get_user_session()}
 
 @app.post("/ajchat/users/register")
 async def register_user(user: UserIn):

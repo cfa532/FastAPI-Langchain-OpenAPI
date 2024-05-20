@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-import sys
+import sys, ipaddress, re
 from typing import Union
 from pydantic import BaseModel
 from enum import Enum
@@ -9,6 +9,22 @@ MAX_TOKEN = {
     "gpt-4": 4096,
     "gpt-4-turbo": 8192
 }
+
+# Function to check if an IP is a local network IP
+def is_local_network_ip(ip):
+    addr = re.findall(r'\[(.+)\]', ip[:ip.rfind(':')])
+    if len(addr) == 0:
+        return ipaddress.ip_address(ip[:ip.rfind(':')]).is_private
+    else:
+        return ipaddress.ip_address(addr[0]).is_private
+
+def is_ipv6(ip):
+    addr = re.findall(r'\[(.+)\]', ip[:ip.rfind(':')])
+    if len(addr) == 0:
+        return False
+    else:
+        return True
+        # return ipaddress.ip_address(addr).version == 6
 
 class RoleName(str, Enum):
     user = "user"
