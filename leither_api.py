@@ -31,23 +31,29 @@ def get_user_session():
     v4_ips = [ip for ip in public_ips if not is_ipv6(ip)]      # get ipv4 list
     if len(v4_ips) > 0:
         ip = v4_ips[0]      # v4 IP takes priority
-    return {"node_ip": ip}
+
+    user_client, client_sid = get_user_client(ip)
+    return {"node_ip": ip, "sid": client_sid}
+
+def get_user_client(user_node_ip):
+    user_client = hprose.HttpClient("http://"+ user_node_ip +"/webapi/")
+    result = user_client.Login("aj", "123456", "byname")
+    ppt = user_client.SignPPT(result.sid, {
+        "CertFor": "Self",
+        "Userid": result.uid,
+        "RequestService": "mimei"
+    }, 1)
+    user_client.RequestService(ppt)
+    return user_client, result.sid
 
 def register_in_db(user: UserInDB):
     print(user)
     u = get_user(user.username)
     if not u:
-        user_client = hprose.HttpClient("http://"+ get_user_session()["node_ip"] +"/webapi/")
-        result = user_client.Login("aj", "123456", "byname")
-        print(result)
-        ppt = user_client.SignPPT(result.sid, {
-            "CertFor": "Self",
-            "Userid": result.uid,
-            "RequestService": "mimei"
-        }, 1)
-        user_client.RequestService(ppt)
-        # create a mimei for the user at a remote server
-        user.mid = user_client.MMCreate(result.sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
+        user_client, client_sid = get_user_client(get_user_session()["node_ip"])
+
+        # create a mimei for the user at its mimei server
+        user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
 
         mmsid_cur = client.MMOpen(api.sid, mid, "cur")
         client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))

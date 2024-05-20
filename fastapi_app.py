@@ -19,7 +19,7 @@ from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 # openssl rand -hex 32
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60
+ACCESS_TOKEN_EXPIRE_MINUTES = 480
 connectionManager = ConnectionManager()
 
 class Token(BaseModel):
