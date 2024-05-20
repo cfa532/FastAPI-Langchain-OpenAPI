@@ -37,10 +37,7 @@ def register_in_db(user: UserInDB):
     print(user)
     u = get_user(user.username)
     if not u:
-        ip = get_user_session().node_ip
-        print(ip)
-
-        user_client = hprose.HttpClient("http://"+ip+"/webapi/")
+        user_client = hprose.HttpClient("http://"+ get_user_session()["node_ip"] +"/webapi/")
         result = user_client.Login("aj", "123456", "byname")
         print(result)
         ppt = user_client.SignPPT(result.sid, {
