@@ -32,8 +32,7 @@ def get_user(username):
     user = client.Hget(mmsid, userAccountKey, username)
     if not user:
         return None
-    user = json.loads(user)
-    return UserInDB(**user)
+    return UserInDB(**json.loads(user))
 
 def get_users():
     mmsid = client.MMOpen(api.sid, mid, "last")
@@ -41,19 +40,17 @@ def get_users():
 
 def update_user(user: UserInDB):
     mmsid = client.MMOpen(api.sid, mid, "last")
-    user_in_db = UserInDB(client.Hget(mmsid, userAccountKey, user.username))
+    user_in_db = UserInDB(**json.loads(client.Hget(mmsid, userAccountKey, user.username)))
     for attr in vars(user):
         setattr(user_in_db, attr, getattr(user, attr))
     mmsid_cur = client.MMOpen(api.sid, mid, "cur")
-    client.Hset(mmsid_cur, userAccountKey, user.username, user_in_db)
+    client.Hset(mmsid_cur, userAccountKey, user.username, json.dumps(user_in_db.model_dump()))
     client.MMBackup(api.sid, mid, "", "delRef=true")
-    mmsid = client.MMOpen(api.sid, mid, "last")
 
 def delete_user(username: str):
     mmsid_cur = client.MMOpen(api.sid, mid, "cur")
     client.Hdel(mmsid_cur, userAccountKey, username)
     client.MMBackup(api.sid, mid, "", "delRef=true")
-    mmsid = client.MMOpen(api.sid, mid, "last")
 
 # def get_user(username, password, identifier):
 #     # the password is hashed already
