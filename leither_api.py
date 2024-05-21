@@ -85,6 +85,16 @@ def delete_user(username: str):
     client.Hdel(mmsid_cur, USER_ACCOUNT_KEY, username)
     client.MMBackup(api.sid, mid, "", "delRef=true")
 
+def bookkeeping(llm, total_cost, total_tokens, username):
+    mmsid = client.MMOpen(api.sid, mid, "last")
+    user_in_db = UserInDB(**json.loads(client.Hget(mmsid, USER_ACCOUNT_KEY, username)))
+    user_in_db.token_usage[llm] += float(total_cost)
+    user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
+
+    mmsid_cur = client.MMOpen(api.sid, mid, "cur")
+    client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user_in_db.model_dump()))
+    client.MMBackup(api.sid, mid, "", "delRef=true")
+
 # def get_user(username, password, identifier):
 #     # the password is hashed already
 #     user = json.load(client.Hget(mmsid, USER_ACCOUNT_KEY, identifier))
