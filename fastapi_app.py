@@ -15,7 +15,7 @@ load_dotenv()
 
 from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
-import time
+from pet_hash import get_password_hash, verify_password
 
 # to get a string like this run:
 # openssl rand -hex 32
@@ -42,7 +42,6 @@ async def lifespan(app: FastAPI):
     yield
     # Clean up the ML models and release the resources
     # ml_models.clear()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI(lifespan=lifespan)
 
@@ -55,22 +54,14 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(password = plain_password.encode('utf-8') , hashed_password = hashed_password.encode('utf-8'))
-
-def get_password_hash(password):
-    pwd_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password=pwd_bytes, salt=salt)
-    return hashed_password
-    # return pwd_context.hash(password)
-
 def authenticate_user(username: str, password: str):
     user = get_user(username)
     if not user:
         return None
+    start_time = time.time()
     if not verify_password(password, user.hashed_password):
         return None
+    print("--- %s seconds ---" % (time.time() - start_time))
     return user
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
@@ -107,7 +98,6 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
-    start_time = time.time()
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -121,7 +111,6 @@ async def login_for_access_token(
     )
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
-    print("--- %s seconds ---" % (time.time() - start_time))
     return {"token": token, "user": user_out, "session": get_user_session()}
 
 @app.post(BASE_ROUTE+"/users/register")
