@@ -13,7 +13,7 @@ from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 load_dotenv()
 
-from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session
+from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session, bookkeeping
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 import time
 
@@ -224,6 +224,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": resp, 
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
+                bookkeeping(params["model"], cb.total_tokens, cb.total_cost, event["user"])
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
