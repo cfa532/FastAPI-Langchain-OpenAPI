@@ -14,8 +14,10 @@ MAX_TOKEN = {
 def is_local_network_ip(ip):
     addr = re.findall(r'\[(.+)\]', ip[:ip.rfind(':')])
     if len(addr) == 0:
+        #IPv4, remove :PORT
         return ipaddress.ip_address(ip[:ip.rfind(':')]).is_private
     else:
+        # IPv6
         return ipaddress.ip_address(addr[0]).is_private
 
 def is_ipv6(ip):

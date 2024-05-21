@@ -1,6 +1,5 @@
 import hprose, json
 from utilities import UserInDB, is_ipv6, is_local_network_ip
-import subprocess
 
 client = hprose.HttpClient('http://localhost:8004/webapi/')
 print(client.GetVar("", "ver"))
@@ -10,7 +9,7 @@ print("reply", api)
 print("sid  ", api.sid)
 print("uid  ", api.uid)
 
-USER_ACCOUNT_KEY = "AJCHAT_APP_USER_ACCOUNT_KEY"
+USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
 # USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"
@@ -32,8 +31,8 @@ def get_user_session():
     if len(v4_ips) > 0:
         ip = v4_ips[0]      # v4 IP takes priority
 
-    user_client, client_sid = get_user_client(ip)
-    return {"node_ip": ip, "sid": client_sid}
+    user_client, session_id = get_user_client(ip)
+    return {"node_ip": ip, "sid": session_id}
 
 def get_user_client(user_node_ip):
     user_client = hprose.HttpClient("http://"+ user_node_ip +"/webapi/")
@@ -54,7 +53,6 @@ def register_in_db(user: UserInDB):
 
         # create a mimei for the user at its mimei server
         user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
-
         mmsid_cur = client.MMOpen(api.sid, mid, "cur")
         client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
         client.MMBackup(api.sid, mid, "", "delRef=true")

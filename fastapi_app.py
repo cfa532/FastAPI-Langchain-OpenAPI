@@ -1,5 +1,6 @@
-import json, sys, bcrypt
+import json, sys, bcrypt, time
 from datetime import datetime, timedelta, timezone
+from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect, APIRouter
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -14,12 +15,14 @@ load_dotenv()
 
 from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
+import time
 
 # to get a string like this run:
 # openssl rand -hex 32
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480
+ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
+BASE_ROUTE = "/aichat"
 connectionManager = ConnectionManager()
 
 class Token(BaseModel):
@@ -32,10 +35,17 @@ class TokenData(BaseModel):
 class User(UserInDB):
     pass
 
-# router = APIRouter(prefix="/ajchat")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Load the ML model
+    get_user_session()
+    yield
+    # Clean up the ML models and release the resources
+    # ml_models.clear()
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-app = FastAPI()
-# app.include_router(router)
+app = FastAPI(lifespan=lifespan)
+
 # Configure CORS
 app.add_middleware(
     CORSMiddleware,
@@ -92,7 +102,8 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         raise credentials_exception
     return user
 
-@app.post("/ajchat/token")
+
+@app.post(BASE_ROUTE+"/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
@@ -111,35 +122,34 @@ async def login_for_access_token(
     user_out = user.model_dump(exclude=["hashed_password"])
     return {"token": token, "user": user_out, "session": get_user_session()}
 
-@app.post("/ajchat/users/register")
+@app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     return register_in_db(UserInDB(**user_in_db))
     # return False
 
-@app.get("/ajchat/users", response_model=UserOut)
+@app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != id:
         raise HTTPException(status_code=400, detail="Not admin")
     return get_user(id)
     # return current_user
 
-@app.get("/ajchat/users/all", response_model=List[UserOut])
+@app.get(BASE_ROUTE+"/users/all", response_model=List[UserOut])
 async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin":
-        print(UserOut(**current_user.model_dump()))
         return [UserOut(**current_user.model_dump())] 
     return get_users()
 
-@app.delete("/ajchat/users/{username}")
+@app.delete(BASE_ROUTE+"/users/{username}")
 async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != username:
         raise HTTPException(status_code=400, detail="Not admin")
     return delete_user(username)
 
 #update user infor
-@app.put("/ajchat/users")
+@app.put(BASE_ROUTE+"/users")
 async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != user.username:
         raise HTTPException(status_code=400, detail="Not admin")
@@ -150,24 +160,24 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
         user_in_db["hashed_password"] = get_password_hash(user.password)
     return update_user(UserInDB(**user_in_db))
 
-@app.get("/")
+@app.get(BASE_ROUTE+"/")
 async def get():
     return HTMLResponse("Hello world.")
 
-@app.websocket("/ajchat/ws/")
+@app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket):
     await connectionManager.connect(websocket)
     try:
         while True:
             message = await websocket.receive_text()
             event = json.loads(message)
-            print(event)
-            await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": "Message received fine", 
-                    "tokens": "111",
-                    "cost": "0.01"}))
-            continue
+            # print(event)
+            # await websocket.send_text(json.dumps({
+            #         "type": "result",
+            #         "answer": "Message received fine", 
+            #         "tokens": "111",
+            #         "cost": "0.01"}))
+            # continue
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
@@ -182,32 +192,34 @@ async def websocket_endpoint(websocket: WebSocket):
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
             # query = event["input"]["query"]
             # memory = ConversationBufferMemory(return_messages=False)
+            query = "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.\nCurrent conversation:\n"
             if event["input"].get("history"):
                 # user server history if history key is not present in user request
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
-                query = "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.\nCurrent conversation:\n"
                 hlen = 0
                 for c in event["input"]["history"]:
                     hlen += len(c["Q"]) + len(c["A"])
                     if hlen > MAX_TOKEN[params["model"]]/2:
                         break
                     else:
-                        query += "Human: "+c["Q"]+"\nAI:\n"+c["A"]+"\n"
-                query += "Human: "+event["input"]["query"]+"\nAI:"
-
+                        query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
+            query += "Human: "+event["input"]["query"]+"\nAI:"
+            print(query)
+            start_time = time.time()
             with get_cost_tracker_callback(params["model"]) as cb:
                 # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                 chain =CHAT_LLM
                 resp = ""
                 async for chunk in chain.astream(query):
-                    print(chunk, end="|", flush=True)    # chunk size can be big
+                    print(chunk.content, end="|", flush=True)    # chunk size can be big
                     resp += chunk.content
-                    await websocket.send(json.dumps({"type": "stream", "data": chunk.content}))
+                    await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
                 print('\n', cb)
+                print("time diff=", (time.time() - start_time))
                 sys.stdout.flush()
-                await websocket.send(json.dumps({
+                await websocket.send_text(json.dumps({
                     "type": "result",
-                    "answer": chunk["response"], 
+                    "answer": resp, 
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
 
