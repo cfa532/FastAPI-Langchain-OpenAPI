@@ -35,14 +35,13 @@ class RoleName(str, Enum):
 class UserOut(BaseModel):
     username: str
     subscription: bool = False
-    role: str = RoleName.user.value
-    mid: Union[str, None] = None            # mimei id of this user
-    token_count: Union[dict, None] = None    # how many takens left in user account
-    token_usage: Union[dict, None] = None    # accumulated tokens used in user account
+    deviceIdentifier: str                   # device id of this user
+    token_count: Union[dict, None] = None   # how many takens left in user account
+    token_usage: Union[dict, None] = None   # accumulated tokens used in user account
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
-    template: Union[dict, None] = None
+    template: Union[dict, None] = None      # parameters for LLM
 
 class UserIn(UserOut):
     password: str                           # the password is hashed in DB

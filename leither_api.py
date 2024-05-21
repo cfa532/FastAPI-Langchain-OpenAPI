@@ -9,7 +9,7 @@ print("reply", api)
 print("sid  ", api.sid)
 print("uid  ", api.uid)
 
-USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
+USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
 # USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"
