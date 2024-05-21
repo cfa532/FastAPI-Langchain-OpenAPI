@@ -107,6 +107,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
+    start_time = time.time()
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -120,6 +121,7 @@ async def login_for_access_token(
     )
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
+    print("--- %s seconds ---" % (time.time() - start_time))
     return {"token": token, "user": user_out, "session": get_user_session()}
 
 @app.post(BASE_ROUTE+"/users/register")
