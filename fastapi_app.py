@@ -65,8 +65,8 @@ def get_password_hash(password):
     return hashed_password
     # return pwd_context.hash(password)
 
-def authenticate_user(username: str, password: str):
-    user = get_user(username)
+def authenticate_user(username: str, password: str, identtifer: str):
+    user = get_user(username, identtifer)
     if not user:
         return None
     if not verify_password(password, user.hashed_password):
@@ -108,7 +108,7 @@ async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
     start_time = time.time()
-    user = authenticate_user(form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password, form_data.client_id)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

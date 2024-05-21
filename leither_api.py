@@ -47,25 +47,33 @@ def get_user_client(user_node_ip):
 
 def register_in_db(user: UserInDB):
     print(user)
-    u = get_user(user.username)
-    if not u:
-        user_client, client_sid = get_user_client(get_user_session()["node_ip"])
-
-        # create a mimei for the user at its mimei server
-        user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
+    if not get_user(user.username):
         mmsid_cur = client.MMOpen(api.sid, mid, "cur")
         client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
         client.MMBackup(api.sid, mid, "", "delRef=true")
         return True
     else:
         return False
-    
-def get_user(username):
+
+# Create an account for all trial users. Set username with device identifier.
+# After registration, username will be different from its identifier.
+def get_user(username, identifier):
     mmsid = client.MMOpen(api.sid, mid, "last")
-    user = client.Hget(mmsid, USER_ACCOUNT_KEY, username)
-    if not user:
-        return None
-    return UserInDB(**json.loads(user))
+    if username == identifier:
+        user = client.Hget(mmsid, USER_ACCOUNT_KEY, username)
+        if not user:
+            # create an account for the new user
+            user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, deviceIdentifier=identifier)
+            mmsid_cur = client.MMOpen(api.sid, mid, "cur")
+            client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user.model_dump()))
+            client.MMBackup(api.sid, mid, "", "delRef=true")
+        else:
+            # this is a anonymous user, no registered yet.
+            return UserInDB(**json.loads(user))
+    else:
+        # this is a registered user
+        user = client.Hget(mmsid, USER_ACCOUNT_KEY, identifier)
+        return UserInDB(**json.loads(user))
 
 def get_users():
     mmsid = client.MMOpen(api.sid, mid, "last")
