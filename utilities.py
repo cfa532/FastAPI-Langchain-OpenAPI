@@ -32,31 +32,34 @@ class RoleName(str, Enum):
     user = "user"
     admin = "admin"
 
-class UserOut(BaseModel):
+class User(BaseModel):
     username: str
     subscription: bool = False
-    identifier: str                   # device id of this user
+    identifier: str                         # device id of this user
+    mid: str                                # the user's mid
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
     template: Union[dict, None] = None      # parameters for LLM
 
+    # def model_dump(self, exclude: list = []):
+    #     if "password" in exclude:
+    #         exclude.remove("password")
+    #     return {k: v for k, v in self.dict().items() if k not in exclude}
+    
+class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI
     token_count: Union[dict, None] = None   # how many takens left in user account
     token_usage: Union[dict, None] = None   # accumulated tokens usage in dollar amount
     current_usage: Union[dict, None] = None # token cost for the month
 
-class UserIn(BaseModel):
+class UserIn(User):
     password: str                           # the password is hashed in DB
-    username: str
-    subscription: bool = False
-    identifier: str                   # device id of this user
-    email: Union[str, None] = None          # if present, useful for reset password
-    family_name: Union[str, None] = None
-    given_name: Union[str, None] = None
 
-class UserInDB(UserOut):
+class UserInDB(User):
     hashed_password: str
+
+class UserInMM(UserOut):
     timestamp: Union[int, None] = None      # timestamp of the last usage. If month of current call is different from last one. Clear current useage.
 
 class ConnectionManager:

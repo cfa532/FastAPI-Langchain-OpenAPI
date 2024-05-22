@@ -41,6 +41,8 @@ def get_user(username, identifier=None):
         # create an account for the new user. Identifier is required.
         if identifier is None:
             return None
+        user.mid  
+        # user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, identifier=identifier)
         user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, identifier=identifier)
         mmsid_cur = client.MMOpen(api.sid, mid, "cur")
         client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user.model_dump()))
