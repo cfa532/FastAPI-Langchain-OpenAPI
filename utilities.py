@@ -57,6 +57,7 @@ class UserIn(BaseModel):
 
 class UserInDB(UserOut):
     hashed_password: str
+    timestamp: Union[int, None] = None      # timestamp of the last usage. If month of current call is different from last one. Clear current useage.
 
 class ConnectionManager:
     def __init__(self):
