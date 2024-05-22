@@ -35,16 +35,25 @@ class RoleName(str, Enum):
 class UserOut(BaseModel):
     username: str
     subscription: bool = False
-    deviceIdentifier: str                   # device id of this user
-    token_count: Union[dict, None] = None   # how many takens left in user account
-    token_usage: Union[dict, None] = None   # accumulated tokens used in user account
+    identifier: str                   # device id of this user
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
     template: Union[dict, None] = None      # parameters for LLM
 
-class UserIn(UserOut):
+    # bookkeeping information is based on server records. User keep a copy on its device as FYI
+    token_count: Union[dict, None] = None   # how many takens left in user account
+    token_usage: Union[dict, None] = None   # accumulated tokens usage in dollar amount
+    current_usage: Union[dict, None] = None # token cost for the month
+
+class UserIn(BaseModel):
     password: str                           # the password is hashed in DB
+    username: str
+    subscription: bool = False
+    identifier: str                   # device id of this user
+    email: Union[str, None] = None          # if present, useful for reset password
+    family_name: Union[str, None] = None
+    given_name: Union[str, None] = None
 
 class UserInDB(UserOut):
     hashed_password: str
