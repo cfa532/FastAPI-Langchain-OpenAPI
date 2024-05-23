@@ -2,7 +2,7 @@ import json, sys, time
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,10 +13,9 @@ from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 load_dotenv()
 
-from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session, bookkeeping
+from leither_api import LeitherAPI
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
-import time
 
 # to get a string like this run:
 # openssl rand -hex 32
@@ -25,6 +24,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
 BASE_ROUTE = "/aichat"
 connectionManager = ConnectionManager()
+lapi = LeitherAPI()
 
 class Token(BaseModel):
     access_token: str
@@ -39,7 +39,7 @@ class User(UserInDB):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
-    get_user_session()
+    # lapi.get_user_session()
     yield
     # Clean up the ML models and release the resources
     # ml_models.clear()
@@ -57,7 +57,7 @@ app.add_middleware(
 )
 
 def authenticate_user(username: str, password: str):
-    user = get_user(username)
+    user = lapi.get_user(username)
     if password != "" and not verify_password(password, user.hashed_password):
         # if password is empty string, this is a temp user. "" not equal to None.
         return None
@@ -87,7 +87,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
-    user = get_user(username=token_data.username)
+    user = lapi.get_user(username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
@@ -112,34 +112,34 @@ async def login_for_access_token(
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
     print("--- %s seconds ---" % (time.time() - start_time))
-    return {"token": token, "user": user_out, "session": get_user_session()}
+    return {"token": token, "user": user_out, "session": lapi.get_user_session()}
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
     # If user has tried service, there is valid mid attribute. Otherwise, it is None
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
-    return register_in_db(UserInDB(**user_in_db))
+    return lapi.register_in_db(UserInDB(**user_in_db))
     # return False
 
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != id:
         raise HTTPException(status_code=400, detail="Not admin")
-    return get_user(id)
+    return lapi.get_user(id)
     # return current_user
 
 @app.get(BASE_ROUTE+"/users/all", response_model=List[UserOut])
 async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin":
         return [UserOut(**current_user.model_dump())] 
-    return get_users()
+    return lapi.get_users()
 
 @app.delete(BASE_ROUTE+"/users/{username}")
 async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != username:
         raise HTTPException(status_code=400, detail="Not admin")
-    return delete_user(username)
+    return lapi.delete_user(username)
 
 #update user infor
 @app.put(BASE_ROUTE+"/users")
@@ -151,7 +151,7 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
     # if no password, do not update it
     if user.password != "":
         user_in_db["hashed_password"] = get_password_hash(user.password)
-    return update_user(UserInDB(**user_in_db))
+    return lapi.update_user(UserInDB(**user_in_db))
 
 @app.get(BASE_ROUTE+"/")
 async def get():
@@ -164,13 +164,14 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             message = await websocket.receive_text()
             event = json.loads(message)
-            # print(event)
-            # await websocket.send_text(json.dumps({
-            #         "type": "result",
-            #         "answer": "Message received fine", 
-            #         "tokens": "111",
-            #         "cost": "0.01"}))
-            # continue
+            print(event)
+            await websocket.send_text(json.dumps({
+                    "type": "result",
+                    "answer": "Message received fine", 
+                    "tokens": "111",
+                    "cost": "0.01"}))
+            lapi.bookkeeping("gpt-3.5", 100, 0.01, event["user"])
+            continue
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
@@ -215,7 +216,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": resp, 
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
-                bookkeeping(params["model"], cb.total_tokens, cb.total_cost, event["user"])
+                lapi.bookkeeping(params["model"], cb.total_tokens, cb.total_cost, event["user"])
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
