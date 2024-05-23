@@ -1,4 +1,4 @@
-import json, sys, bcrypt, time
+import json, sys, time
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
@@ -15,6 +15,7 @@ load_dotenv()
 
 from leither_api import get_user, register_in_db, delete_user, update_user, get_users, get_user_session, bookkeeping
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
+from pet_hash import get_password_hash, verify_password
 import time
 
 # to get a string like this run:
@@ -55,21 +56,10 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def verify_password(plain_password, hashed_password):
-    return bcrypt.checkpw(password = plain_password.encode('utf-8') , hashed_password = hashed_password.encode('utf-8'))
-
-def get_password_hash(password):
-    pwd_bytes = password.encode('utf-8')
-    salt = bcrypt.gensalt()
-    hashed_password = bcrypt.hashpw(password=pwd_bytes, salt=salt)
-    return hashed_password
-    # return pwd_context.hash(password)
-
-def authenticate_user(username: str, password: str, identtifer: str):
-    user = get_user(username, identtifer)
-    if not user:
-        return None
-    if not verify_password(password, user.hashed_password):
+def authenticate_user(username: str, password: str):
+    user = get_user(username)
+    if password != "" and not verify_password(password, user.hashed_password):
+        # if password is empty string, this is a temp user. "" not equal to None.
         return None
     return user
 
@@ -108,7 +98,7 @@ async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
     start_time = time.time()
-    user = authenticate_user(form_data.username, form_data.password, form_data.client_id)
+    user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -126,6 +116,7 @@ async def login_for_access_token(
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
+    # If user has tried service, there is valid mid attribute. Otherwise, it is None
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     return register_in_db(UserInDB(**user_in_db))
