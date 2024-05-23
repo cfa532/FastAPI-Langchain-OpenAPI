@@ -38,7 +38,7 @@ class User(UserInDB):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
-    get_user_session()
+    # get_user_session()
     yield
     # Clean up the ML models and release the resources
     # ml_models.clear()
