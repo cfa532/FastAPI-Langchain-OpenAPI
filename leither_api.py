@@ -1,6 +1,5 @@
-import hprose, json
-from utilities import UserInDB, UserIn, is_ipv6, is_local_network_ip
-from pet_hash import get_password_hash
+import hprose, json, time
+from utilities import UserInDB, is_ipv6, is_local_network_ip
 
 APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
@@ -11,7 +10,7 @@ USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"        # Gen8/mimei 8001
 
 class LeitherAPI:
     def __init__(self):
-        self.client = hprose.HttpClient('http://localhost:8004/webself/')
+        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
         print(self.client.GetVar("", "ver"))
         ppt = self.client.GetVarByContext("", "context_ppt")
         self.api = self.client.Login(ppt)
