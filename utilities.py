@@ -35,7 +35,6 @@ class RoleName(str, Enum):
 class User(BaseModel):
     username: str
     subscription: bool = False
-    identifier: str                         # device id of this user
     mid: str                                # the user's mid
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None

@@ -9,47 +9,52 @@ print("reply", api)
 print("sid  ", api.sid)
 print("uid  ", api.uid)
 
+APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
-# USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"
-USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"
+# USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"      # Mac 8004
+USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"        # Gen8/mimei 8001
 
-mid = client.MMCreate(api.sid, api.uid, "", "ajchat app db", 2, 0x07276705)
+mid = client.MMCreate(api.sid, APPID_MIMEI_KEY, "app", "secretari backend", 2, 0x07276705)
 print("mid  ", mid)
 
 # The function is called when user create a real account by providing personal information. The username shall be different from identifier.
 # A temporary user account has been created when user installed Secretari app. The username is set with device identifier, for a better user experience. This temp account will be deleted after registration. 
 # Information such as token usage and cost will be stored in the database.
 def register_in_db(user: UserInDB):
-    # the incoming user shall have a new username, different from its identifier.
-    mmsid = client.MMOpen(api.sid, mid, "last")
-    user_in_db = UserInDB(**json.loads(client.Hget(mmsid, USER_ACCOUNT_KEY, user.identifier)))
+    # the incoming user shall have a new username, different from its identifier, aka mid.
+    mmsid = client.MMOpen(api.sid, user.mid, "last")
+    user_in_db = UserInDB(**json.loads(client.MFGetObject(mmsid)))
+    # Now there is a real password. Hash password.
+
     print(user, user_in_db)
     for attr in vars(user):
         setattr(user_in_db, attr, getattr(user, attr))
-    mmsid_cur = client.MMOpen(api.sid, mid, "cur")
-    client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user_in_db.model_dump()))
-    client.Hdel(mmsid_cur, USER_ACCOUNT_KEY, user.identifier)
-    client.MMBackup(api.sid, mid, "", "delRef=true")
+    
+    user.mid = client.MMCreate(api.sid, APPID_MIMEI_KEY, "mimei file", user.username, 1, 0x07276705)
+    mmsid_cur = client.MMOpen(api.sid, user.mid, "cur")
+    client.HMFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
+    client.MMBackup(api.sid, mmsid_cur, "", "delRef=true")
+    client.MMAddRef(api.sid, mid, user.mid)
 
 # After registration, username will be different from its identifier.
-def get_user(username, identifier=None):
-    mmsid = client.MMOpen(api.sid, mid, "last")
-    user = client.Hget(mmsid, USER_ACCOUNT_KEY, username)
+def get_user(username, mid):
+    user_mid = client.MMCreate(api.sid, APPID_MIMEI_KEY, "mimei file", username, 1, 0x07276705)
+    mmsid = client.MMOpen(api.sid, user_mid, "last")
+    user = client.GetObject(mmsid)
     if not user:
-        # create an account for the new user. Identifier is required.
-        if identifier is None:
-            return None
-        user.mid  
-        # user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, identifier=identifier)
-        user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, identifier=identifier)
+        # create an account for the new user. Identifier is required, which is its device ID
+        # create an anonymous account, use device id as username until it registers a real account
         mmsid_cur = client.MMOpen(api.sid, mid, "cur")
-        client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user.model_dump()))
-        client.MMBackup(api.sid, mid, "", "delRef=true")
+        user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, mid=user_mid)
+
+        # create a mimei file for the user and ref to it from main mimei
+        client.MMSetObject(mmsid_cur, user.model_dump())
+        client.MMBackup(api.sid, mmsid_cur, "", "delRef=true")
+        client.MMAddRef(api.sid, mid, user_mid)
         return user
     else:
-        # this is a anonymous user, no registered yet.
         return UserInDB(**json.loads(user))
 
 def update_user(user: UserInDB):
