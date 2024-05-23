@@ -1,22 +1,26 @@
-import hprose, json
+import hprose, json, time
 from utilities import UserInDB, is_ipv6, is_local_network_ip
-
-client = hprose.HttpClient('http://localhost:8004/webapi/')
-print(client.GetVar("", "ver"))
-ppt = client.GetVarByContext("", "context_ppt")
-api = client.Login(ppt)
-print("reply", api)
-print("sid  ", api.sid)
-print("uid  ", api.uid)
 
 USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
 # USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"
 USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"
+api, mid, client = None, None, None
 
-mid = client.MMCreate(api.sid, api.uid, "", "ajchat app db", 2, 0x07276705)
-print("mid  ", mid)
+def init():
+    start_time = time.time()
+    client = hprose.HttpClient('http://localhost:8004/webapi/')
+    print(client.GetVar("", "ver"))
+    ppt = client.GetVarByContext("", "context_ppt")
+    api = client.Login(ppt)
+    mid = client.MMCreate(api.sid, api.uid, "", "ajchat app db", 2, 0x07276705)
+
+    print("reply", api)
+    print("sid  ", api.sid)
+    print("uid  ", api.uid)
+    print("mid  ", mid)
+    print("--- %s seconds ---" % (time.time() - start_time))
 
 # so = subprocess.check_output("../darwin/Leither dht findpeer "+USER_NODE_ID, shell=True).decode('utf-8')
 # print(so)

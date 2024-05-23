@@ -38,10 +38,12 @@ class User(UserInDB):
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Load the ML model
-    # get_user_session()
+    from leither_api import init
+    init()
     yield
     # Clean up the ML models and release the resources
     # ml_models.clear()
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI(lifespan=lifespan)
 
