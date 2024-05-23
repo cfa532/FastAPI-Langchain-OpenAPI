@@ -31,6 +31,7 @@ def get_user_session():
     if len(v4_ips) > 0:
         ip = v4_ips[0]      # v4 IP takes priority
 
+    print("user node ip: ", ip)
     user_client, session_id = get_user_client(ip)
     return {"node_ip": ip, "sid": session_id}
 
