@@ -9,10 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
-from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 load_dotenv()
 
+from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
@@ -22,7 +22,7 @@ from pet_hash import get_password_hash, verify_password
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
-BASE_ROUTE = "/aichat"
+BASE_ROUTE = "/secretari"
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
 
@@ -165,12 +165,14 @@ async def websocket_endpoint(websocket: WebSocket):
             message = await websocket.receive_text()
             event = json.loads(message)
             print(event)
+            user = lapi.get_user(event["user"])
             await websocket.send_text(json.dumps({
                     "type": "result",
                     "answer": "Message received fine", 
                     "tokens": "111",
-                    "cost": "0.01"}))
-            lapi.bookkeeping("gpt-3.5", 100, 0.01, event["user"])
+                    "cost": "0.01",
+                    "user": user.model_dump()}))
+            lapi.bookkeeping("gpt-3.5", 100, 0.01, user)
             continue
             params = event["parameters"]
             if params["llm"] == "openai":

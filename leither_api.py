@@ -1,5 +1,7 @@
 import hprose, json, time
+from datetime import datetime
 from utilities import UserInDB, is_ipv6, is_local_network_ip
+from hprose import HproseException
 
 APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
@@ -27,7 +29,7 @@ class LeitherAPI:
     # Information such as token usage and cost will be stored in the database.
     def register_in_db(self, user: UserInDB):
         mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "mimei file", user.username, 1, 0x07276705)
-        mmsid = self.client.MMOpen(self.sid, mid, "last")
+        mmsid = self.client.MMOpen(self.sid, mid)
         user_in_db = self.client.MFGetObject(mmsid)
         if user_in_db:
             # if the created mid is not empty, the username is taken.
@@ -58,23 +60,26 @@ class LeitherAPI:
             self.client.MMDelRef(self.sid, self.mid, user.mid)   # get rid of old mm
 
     # After registration, username will be different from its identifier.
-    def get_user(self, username):
+    def get_user(self, username) -> UserInDB:
         user_mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "mimei file", username, 1, 0x07276705)
-        mmsid = self.client.MMOpen(self.sid, user_mid, "last")
+        print("user mid ",user_mid)
+        mmsid = self.client.MMOpen(self.sid, user_mid, "cur")
         user = self.client.MFGetObject(mmsid)
-        if not user:
+        if user:
+            print(user)
+            return UserInDB(**json.loads(user))
+        else:
+            print("user not found", user_mid, username)
             # create an account for the new user. Identifier is required, which is its device ID
             # create an anonymous account, use device id as username until it registers a real account
-            mmsid_cur = self.client.MMOpen(self.sid, user_mid, "cur")
-            user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, mid=user_mid)
+            user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, mid=user_mid, current_usage={"gpt-3.5":0, "gpt-4-turbo":0},
+                            timestamp=time.time())
+            self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
 
             # create a mimei file for the user and ref to it from main mimei
-            self.client.MFSetObject(mmsid_cur, user.model_dump())
-            self.client.MMBackup(self.sid, mmsid_cur, "", "delRef=true")
+            self.client.MMBackup(self.sid, user_mid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, user_mid)
             return user
-        else:
-            return UserInDB(**json.loads(user))
 
     def update_user(self, user: UserInDB):
         mmsid = self.client.MMOpen(self.sid, user.mid, "last")
@@ -88,20 +93,18 @@ class LeitherAPI:
     def delete_user(self, username: str):
         pass
 
-    def bookkeeping(self, llm, total_cost, total_tokens, mid):
-        mmsid = self.client.MMOpen(self.sid, mid, "last")
-        user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
-        user_in_db.token_usage[llm] += float(total_cost)
+    def bookkeeping(self, llm, total_tokens, total_cost, user_in_db: UserInDB):
+        user_in_db.token_usage[llm] += float(total_cost)    # total usage in dollar amount
         user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
+        last_month = datetime.fromtimestamp(user_in_db.timestamp).month
+        current_month = datetime.now().month
+        if last_month != current_month:
+            user_in_db.current_usage[llm] = float(total_cost)       # a new month
+        else:
+            user_in_db.current_usage[llm] += float(total_cost)      # usage of the month
+        user_in_db.timestamp = time.time()
+        print(user_in_db)
 
-        mmsid_cur = self.client.MMOpen(self.sid, mid, "cur")
+        mmsid_cur = self.client.MMOpen(self.sid, user_in_db.mid, "cur")
         self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
-        self.client.MMBackup(self.sid, mid, "", "delRef=true")
-
-    # def get_user(username, password, identifier):
-    #     # the password is hashed already
-    #     user = json.load(self.client.Hget(mmsid, USER_ACCOUNT_KEY, identifier))
-    #     if not user:
-    #         user = {username:username, password:password, "tokenCount":{"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, "tokenUsage":{"gpt-3.5":0, "gpt-4-turbo":0}, "subscription": False, identifier:identifier}
-    #         self.client.Hset(mmsid, USER_ACCOUNT_KEY, identifier, user)
-    #     return user
+        self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")

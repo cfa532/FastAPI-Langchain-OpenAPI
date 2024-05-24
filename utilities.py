@@ -55,11 +55,9 @@ class UserOut(User):
 class UserIn(User):
     password: str                           # the password is hashed in DB
 
-class UserInDB(User):
+class UserInDB(UserOut):
     hashed_password: str
-
-class UserInMM(UserOut):
-    timestamp: Union[int, None] = None      # timestamp of the last usage. If month of current call is different from last one. Clear current useage.
+    timestamp: Union[float, None] = None
 
 class ConnectionManager:
     def __init__(self):
