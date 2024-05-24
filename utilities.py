@@ -1,6 +1,6 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
-import sys, ipaddress, re
+import sys, ipaddress, re, time
 from typing import Union
 from pydantic import BaseModel
 from enum import Enum
@@ -35,7 +35,7 @@ class RoleName(str, Enum):
 class User(BaseModel):
     username: str
     subscription: bool = False
-    mid: str                                # the user's mid
+    mid: Union[str, None] = None                                # the user's mid
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
@@ -57,7 +57,7 @@ class UserIn(User):
 
 class UserInDB(UserOut):
     hashed_password: str
-    timestamp: Union[float, None] = None
+    timestamp: float = time.time()
 
 class ConnectionManager:
     def __init__(self):

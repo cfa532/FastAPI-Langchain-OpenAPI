@@ -112,15 +112,17 @@ async def login_for_access_token(
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
     print("--- %s seconds ---" % (time.time() - start_time))
-    return {"token": token, "user": user_out, "session": lapi.get_user_session()}
+    return {"token": token, "user": user_out}
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
     # If user has tried service, there is valid mid attribute. Otherwise, it is None
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
-    return lapi.register_in_db(UserInDB(**user_in_db))
-    # return False
+    user = lapi.register_in_db(UserInDB(**user_in_db))
+    if not user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    return user
 
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):

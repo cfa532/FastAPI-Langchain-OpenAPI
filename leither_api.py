@@ -1,7 +1,6 @@
 import hprose, json, time
 from datetime import datetime
-from utilities import UserInDB, is_ipv6, is_local_network_ip
-from hprose import HproseException
+from utilities import UserInDB, UserOut
 
 APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
@@ -27,37 +26,39 @@ class LeitherAPI:
     # The function is called when user create a real account by providing personal information. The username shall be different from identifier.
     # A temporary user account has been created when user installed Secretari app. The username is set with device identifier, for a better user experience. This temp account will be deleted after registration. 
     # Information such as token usage and cost will be stored in the database.
-    def register_in_db(self, user: UserInDB):
+    def register_in_db(self, user: UserInDB) -> UserOut:
         mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "mimei file", user.username, 1, 0x07276705)
-        mmsid = self.client.MMOpen(self.sid, mid)
+        mmsid = self.client.MMOpen(self.sid, mid, "cur")
         user_in_db = self.client.MFGetObject(mmsid)
         if user_in_db:
             # if the created mid is not empty, the username is taken.
-            return False
+            return None
         
         if not user.mid:
-            # a new user who has not even tried. Go to register directly. A good man.
+            # a new user who has not even tried before registrating. A good man.
             user.mid = mid
-            mmsid_cur = self.client.MMOpen(self.sid, user.mid, "cur")
-            self.client.MFSetObject(mmsid_cur, json.dumps(user.model_dump()))
-            self.client.MMBackup(self.sid, mmsid_cur, "", "delRef=true")
+            user.token_count = {"gpt-3.5": GPT_3_Tokens, "gpt-4": GPT_4_Turbo_Tokens}
+            user.token_usage = {"gpt-3.5": 0, "gpt-4": 0}
+            user.current_usage = user.token_usage
+            self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
+            self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, user.mid)
+            return UserOut(**user.model_dump())
         else:
             # if the user already has a mid, it is not a new user.
-            mmsid = self.client.MMOpen(self.sid, user.mid, "last")
-            user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
+            user_in_db = UserInDB(**json.loads(user_in_db))
             print(user, user_in_db)
 
+            # copy new user data into new Mimei
             for attr in vars(user):
                 setattr(user_in_db, attr, getattr(user, attr))
-            user_in_db.mid = mid
+            user_in_db.mid = mid    # get a new Mimei id that is genereated with real username
 
-            # now theere is changed new username, create a new Mimei for the user.
-            mmsid_cur = self.client.MMOpen(self.sid, user_in_db.mid, "cur")
-            self.client.HMFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
-            self.client.MMBackup(self.sid, mmsid_cur, "", "delRef=true")
+            self.client.HMFSetObject(mmsid, json.dumps(user_in_db.model_dump()))
+            self.client.MMBackup(self.sid, mmsid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, user_in_db.mid)
-            self.client.MMDelRef(self.sid, self.mid, user.mid)   # get rid of old mm
+            self.client.MMDelRef(self.sid, self.mid, user.mid)      # get rid of old mm
+            return UserOut(**user_in_db.model_dump())
 
     # After registration, username will be different from its identifier.
     def get_user(self, username) -> UserInDB:
@@ -72,8 +73,7 @@ class LeitherAPI:
             print("user not found", user_mid, username)
             # create an account for the new user. Identifier is required, which is its device ID
             # create an anonymous account, use device id as username until it registers a real account
-            user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, mid=user_mid, current_usage={"gpt-3.5":0, "gpt-4-turbo":0},
-                            timestamp=time.time())
+            user = UserInDB(username=username, hashed_password="", token_count={"gpt-3.5":GPT_3_Tokens, "gpt-4-turbo":GPT_4_Turbo_Tokens}, token_usage={"gpt-3.5":0, "gpt-4-turbo":0}, subscription=False, mid=user_mid, current_usage={"gpt-3.5":0, "gpt-4-turbo":0})
             self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
 
             # create a mimei file for the user and ref to it from main mimei
@@ -82,12 +82,11 @@ class LeitherAPI:
             return user
 
     def update_user(self, user: UserInDB):
-        mmsid = self.client.MMOpen(self.sid, user.mid, "last")
-        user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, user.username)))
+        mmsid = self.client.MMOpen(self.sid, user.mid, "cur")
+        user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
         for attr in vars(user):
             setattr(user_in_db, attr, getattr(user, attr))
-        mmsid_cur = self.client.MMOpen(self.sid, user.mid, "cur")
-        self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
+        self.client.MFSetObject(mmsid, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
 
     def delete_user(self, username: str):
