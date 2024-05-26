@@ -92,7 +92,6 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         raise credentials_exception
     return user
 
-
 @app.post(BASE_ROUTE+"/token")
 async def login_for_access_token(
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
@@ -115,11 +114,22 @@ async def login_for_access_token(
     return {"token": token, "user": user_out}
 
 @app.post(BASE_ROUTE+"/users/register")
-async def register_user(user: UserIn):
+async def register_user(user: UserIn) -> UserOut:
     # If user has tried service, there is valid mid attribute. Otherwise, it is None
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     user = lapi.register_in_db(UserInDB(**user_in_db))
+    if not user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    return user
+
+@app.post(BASE_ROUTE+"/users/temp")
+async def register_temp_user(user: UserIn):
+    # A temp user has assigned username, usuall the device identifier. It does not login, so no taken is needed.
+    user_in_db = user.model_dump(exclude=["password"])
+    user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
+    user = lapi.register_temp_user(UserInDB(**user_in_db))
+    print("temp user", user)
     if not user:
         raise HTTPException(status_code=400, detail="Username already taken")
     return user
@@ -174,7 +184,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "tokens": "111",
                     "cost": "0.01",
                     "user": user.model_dump()}))
-            lapi.bookkeeping("gpt-3.5", 100, 0.01, user)
+            lapi.bookkeeping("gpt-4-turbo", 100, 0.01, user)
             continue
             params = event["parameters"]
             if params["llm"] == "openai":

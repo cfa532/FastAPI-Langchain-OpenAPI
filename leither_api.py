@@ -23,7 +23,17 @@ class LeitherAPI:
         print("uid  ", self.uid)
         print("mid  ", self.mid)
 
-    # The function is called when user create a real account by providing personal information. The username shall be different from identifier.
+    def register_temp_user(self, user: UserInDB) -> UserOut:
+        user.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "app", user.username, 1, 0x07276705)
+        user.token_count = {"gpt-3.5": GPT_3_Tokens, "gpt-4": GPT_4_Turbo_Tokens}
+        user.token_usage = {"gpt-3.5": 0, "gpt-4": 0}
+        user.current_usage = user.token_usage
+        self.client.MFSetObject(self.client.MMOpen(self.sid, user.mid, "cur"), json.dumps(user.model_dump()))
+        self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
+        self.client.MMAddRef(self.sid, self.mid, user.mid)
+        return UserOut(**user.model_dump())
+
+    # The function is called when user create a real account by providing personal information. The username shall be different from identifier, used as username in temproral account.
     # A temporary user account has been created when user installed Secretari app. The username is set with device identifier, for a better user experience. This temp account will be deleted after registration. 
     # Information such as token usage and cost will be stored in the database.
     def register_in_db(self, user: UserInDB) -> UserOut:
@@ -36,6 +46,7 @@ class LeitherAPI:
         
         if not user.mid:
             # a new user who has not even tried before registrating. A good man.
+            # in current logic this won't happen. The temp account is create the user starts the App.
             user.mid = mid
             user.token_count = {"gpt-3.5": GPT_3_Tokens, "gpt-4": GPT_4_Turbo_Tokens}
             user.token_usage = {"gpt-3.5": 0, "gpt-4": 0}
