@@ -184,8 +184,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "tokens": "111",
                     "cost": "0.01",
                     "user": user.model_dump()}))
-            lapi.bookkeeping("gpt-4-turbo", 100, 0.01, user)
-            continue
+            
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
@@ -197,9 +196,26 @@ async def websocket_endpoint(websocket: WebSocket):
             elif params["llm"] == "qianfan":
                 pass
 
+            # check user account balance. If current model has not balance, use the cheaper default one.
+            user = lapi.get_user(event["user"])
+            llm_model = params["model"]
+            if user.token_count[llm_model] <= 0:
+                # check default model balance.
+                llm_model = "gpt-3.5"
+                if user.token_count[llm_model] <=0:
+                    await websocket.send_text(json.dumps({
+                        "type": "result",
+                        "answer": "Insufficient balance",
+                        "tokens": "0",
+                        "cost": "0.00",
+                        "user": user.model_dump()}))
+                    continue
+            lapi.bookkeeping(llm_model, 100, 0.01, user)
+            continue
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
             # query = event["input"]["query"]
             # memory = ConversationBufferMemory(return_messages=False)
+
             query = "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.\nCurrent conversation:\n"
             if event["input"].get("history"):
                 # user server history if history key is not present in user request
@@ -207,14 +223,14 @@ async def websocket_endpoint(websocket: WebSocket):
                 hlen = 0
                 for c in event["input"]["history"]:
                     hlen += len(c["Q"]) + len(c["A"])
-                    if hlen > MAX_TOKEN[params["model"]]/2:
+                    if hlen > MAX_TOKEN[llm_model]/2:
                         break
                     else:
                         query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
             query += "Human: "+event["input"]["query"]+"\nAI:"
             print(query)
             start_time = time.time()
-            with get_cost_tracker_callback(params["model"]) as cb:
+            with get_cost_tracker_callback(llm_model) as cb:
                 # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                 chain =CHAT_LLM
                 resp = ""
@@ -230,7 +246,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": resp, 
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
-                lapi.bookkeeping(params["model"], cb.total_tokens, cb.total_cost, event["user"])
+                lapi.bookkeeping(llm_model, cb.total_tokens, cb.total_cost, event["user"])
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
