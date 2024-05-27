@@ -116,11 +116,13 @@ async def login_for_access_token(
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn) -> UserOut:
     # If user has tried service, there is valid mid attribute. Otherwise, it is None
+    print("User in for register:", user)
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     user = lapi.register_in_db(UserInDB(**user_in_db))
     if not user:
         raise HTTPException(status_code=400, detail="Username already taken")
+    print("User out", user)
     return user
 
 @app.post(BASE_ROUTE+"/users/temp")
@@ -129,9 +131,9 @@ async def register_temp_user(user: UserIn):
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     user = lapi.register_temp_user(UserInDB(**user_in_db))
-    print("temp user", user)
+    print("temp user created. ", user)
     if not user:
-        raise HTTPException(status_code=400, detail="Username already taken")
+        raise HTTPException(status_code=400, detail="Failed to create temp User.")
     return user
 
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
@@ -176,15 +178,9 @@ async def websocket_endpoint(websocket: WebSocket):
         while True:
             message = await websocket.receive_text()
             event = json.loads(message)
-            print(event)
-            user = lapi.get_user(event["user"])
-            await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": "Message received fine", 
-                    "tokens": "111",
-                    "cost": "0.01",
-                    "user": user.model_dump()}))
+            print("Incoming event: ", event)
             
+            # create the right Chat LLM
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
@@ -208,8 +204,16 @@ async def websocket_endpoint(websocket: WebSocket):
                         "answer": "Insufficient balance",
                         "tokens": "0",
                         "cost": "0.00",
-                        "user": user.model_dump()}))
+                        "user": UserOut(**user.model_dump())}))
                     continue
+
+            await websocket.send_text(json.dumps({
+                "type": "result",
+                "answer": "Message received fine", 
+                "tokens": "111",
+                "cost": "0.01",
+                "user": UserOut(**user.model_dump()).model_dump()}))
+
             lapi.bookkeeping(llm_model, 100, 0.01, user)
             continue
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
