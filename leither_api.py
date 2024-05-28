@@ -14,8 +14,8 @@ class LeitherAPI:
     def __init__(self):
         self.client = hprose.HttpClient('http://localhost:8004/webapi/')
         print(self.client.GetVar("", "ver"))
-        ppt = self.client.GetVarByContext("", "context_ppt")
-        self.api = self.client.Login(ppt)
+        self.ppt = self.client.GetVarByContext("", "context_ppt")
+        self.api = self.client.Login(self.ppt)
         self.sid = self.api.sid
         self.uid = self.api.uid
         self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "app", "secretari backend", 2, 0x07276705)
@@ -27,8 +27,7 @@ class LeitherAPI:
 
     def get_sid(self):
         if time.time() - self.sid_time > 3600:
-            ppt = self.client.GetVarByContext("", "context_ppt")
-            self.api = self.client.Login(ppt)
+            self.api = self.client.Login(self.ppt)
             self.sid = self.api.sid
             self.sid_time = time.time()
         return self.sid
