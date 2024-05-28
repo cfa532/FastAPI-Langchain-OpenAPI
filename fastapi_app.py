@@ -58,6 +58,8 @@ app.add_middleware(
 
 def authenticate_user(username: str, password: str):
     user = lapi.get_user(username)
+    if user is None:
+        return None
     if password != "" and not verify_password(password, user.hashed_password):
         # if password is empty string, this is a temp user. "" not equal to None.
         return None
