@@ -19,10 +19,19 @@ class LeitherAPI:
         print("sid  ", self.api.sid)
         print("uid  ", self.api.uid)
         print("mid  ", self.mid)
+        self.sid_time = time.time()
+
+    def get_sid(self):
+        if time.time() - self.sid_time > 3600:
+            self.api = self.client.Login(self.client.GetVarByContext("", "context_ppt"))
+            self.sid = self.api.sid
+            self.uid = self.api.uid
+            self.sid_time = time.time()
+        return self.sid
 
     def get_user_session(self):
         # given a node id, find valid IPs
-        ips = list(filter(lambda x: len(x)>6, self.client.GetVar(self.sid, "ips", USER_NODE_ID).split(",")))
+        ips = list(filter(lambda x: len(x)>6, self.client.GetVar(self.get_sid(), "ips", USER_NODE_ID).split(",")))
 
         public_ips = [ip for ip in ips if not is_local_network_ip(ip)]      # remove local network IP
         ip = public_ips[0]
@@ -56,7 +65,7 @@ class LeitherAPI:
 
             # create a mimei for the user at its mimei server
             user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
-            mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
+            mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
             self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
             return True
@@ -64,18 +73,18 @@ class LeitherAPI:
             return False
         
     def get_user(self, username):
-        mmsid = self.client.MMOpen(self.sid, self.mid, "last")
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user = self.client.Hget(mmsid, USER_ACCOUNT_KEY, username)
         if not user:
             return None
         return UserInDB(**json.loads(user))
 
     def get_users(self):
-        mmsid = self.client.MMOpen(self.sid, self.mid, "last")
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         return [UserInDB(**json.loads(user.value)) for user in self.client.Hgetall(mmsid, USER_ACCOUNT_KEY)]
 
     def update_user(self, user: UserInDB):
-        mmsid = self.client.MMOpen(self.sid, self.mid, "last")
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, user.username)))
         for attr in vars(user):
             setattr(user_in_db, attr, getattr(user, attr))
@@ -84,12 +93,12 @@ class LeitherAPI:
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
 
     def delete_user(self, username: str):
-        mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
+        mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
         self.client.Hdel(mmsid_cur, USER_ACCOUNT_KEY, username)
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
 
     def bookkeeping(self, llm, total_cost, total_tokens, username):
-        mmsid = self.client.MMOpen(self.sid, self.mid, "last")
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, username)))
         user_in_db.token_usage[llm] += float(total_cost)
         user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
