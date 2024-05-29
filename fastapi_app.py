@@ -196,6 +196,7 @@ async def websocket_endpoint(websocket: WebSocket):
 
             # check user account balance. If current model has not balance, use the cheaper default one.
             user = lapi.get_user(event["user"])
+            
             llm_model = params["model"]
             if user.token_count[llm_model] <= 0:
                 # check default model balance.
