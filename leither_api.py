@@ -12,7 +12,7 @@ USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"        # Gen8/mimei 8001
 
 class LeitherAPI:
     def __init__(self):
-        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
+        self.client = hprose.HttpClient('http://localhost:8081/webapi/')
         print(self.client.GetVar("", "ver"))
         self.ppt = self.client.GetVarByContext("", "context_ppt")
         self.api = self.client.Login(self.ppt)

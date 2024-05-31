@@ -35,7 +35,7 @@ class RoleName(str, Enum):
 class User(BaseModel):
     username: str
     subscription: bool = False
-    mid: Union[str, None] = None                                # the user's mid
+    mid: Union[str, None] = None            # the user's mid, which is a mimei file
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
