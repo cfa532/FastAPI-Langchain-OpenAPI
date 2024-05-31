@@ -112,6 +112,13 @@ async def handler(websocket):
                             else:
                                 memory.chat_memory.add_messages([HumanMessage(content=c["Q"]), AIMessage(content=c["A"])])
 
+                    await websocket.send(json.dumps({
+                        "type": "result",
+                        "answer": "Fine reply from ai", 
+                        "tokens": 111,
+                        "cost": "0.012"}))
+                    continue
+
                     with get_cost_tracker_callback(params["model"]) as cb:
                         chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                         async for chunk in chain.astream(event["input"]["query"]):
