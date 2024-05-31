@@ -4,10 +4,11 @@ from utilities import UserInDB, is_ipv6, is_local_network_ip
 USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
+LEITHER_SERVER_CLIENT = hprose.HttpClient("http://localhost:8080/webapi/")
 
 class LeitherAPI:
     def __init__(self):
-        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
+        self.client = LEITHER_SERVER_CLIENT
         print(self.client.GetVar("", "ver"))
         self.ppt = self.client.GetVarByContext("", "context_ppt")
         self.api = self.client.Login(self.ppt)
@@ -30,12 +31,10 @@ class LeitherAPI:
 
     def get_user_session(self, user_ip):
         # user's Leither mode ip not used for now.
-        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
         print(self.client.GetVar("", "ver"))
         return self.client.GetVarByContext("", "context_ppt")
 
     def get_user_client(self, user_node_ip):
-        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
         print(self.client.GetVar("", "ver"))
         ppt = self.client.GetVarByContext("", "context_ppt")
 
