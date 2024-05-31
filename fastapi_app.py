@@ -1,6 +1,5 @@
 import json, sys, time
 from datetime import datetime, timedelta, timezone
-from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
@@ -32,19 +31,8 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: Union[str, None] = None
 
-class User(UserInDB):
-    pass
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    # Load the ML model
-    # lapi.get_user_session()
-    yield
-    # Clean up the ML models and release the resources
-    # ml_models.clear()
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-app = FastAPI(lifespan=lifespan)
+app = FastAPI()
 
 # Configure CORS
 app.add_middleware(
