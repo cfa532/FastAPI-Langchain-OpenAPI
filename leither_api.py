@@ -29,27 +29,9 @@ class LeitherAPI:
             self.sid_time = time.time()
         return self.sid
 
-    def get_user_session(self, user_ip):
-        # user's Leither mode ip not used for now.
-        print(self.client.GetVar("", "ver"))
-        return self.client.GetVarByContext("", "context_ppt")
-
-    def get_user_client(self, user_node_ip):
-        print(self.client.GetVar("", "ver"))
-        ppt = self.client.GetVarByContext("", "context_ppt")
-
-        user_client = hprose.HttpClient("http://"+ user_node_ip +"/webapi/")
-        user_api = user_client.Login(ppt)
-        return user_api
-
     def register_in_db(self, user: UserInDB):
         print(user)
-        u = self.get_user(user.username)
-        if not u:
-            # user_client, client_sid = self.get_user_client(self.get_user_session()["node_ip"])
-            # # create a mimei for the user at its mimei server
-            # user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
-            
+        if not self.get_user(user.username):
             mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
             self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
