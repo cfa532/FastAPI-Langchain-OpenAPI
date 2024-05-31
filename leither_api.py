@@ -4,15 +4,13 @@ from utilities import UserInDB, is_ipv6, is_local_network_ip
 USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
-# USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"
-USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"
 
 class LeitherAPI:
     def __init__(self):
         self.client = hprose.HttpClient('http://localhost:8004/webapi/')
         print(self.client.GetVar("", "ver"))
-        ppt = self.client.GetVarByContext("", "context_ppt")
-        self.api = self.client.Login(ppt)
+        self.ppt = self.client.GetVarByContext("", "context_ppt")
+        self.api = self.client.Login(self.ppt)
         self.sid = self.api.sid
         self.uid = self.api.uid
         self.mid = self.client.MMCreate(self.sid, "FmKK37e1T0oGaQJXRMcMjyrmoxa", "app", "aichat index db", 2, 0x07276705)
@@ -23,48 +21,36 @@ class LeitherAPI:
 
     def get_sid(self):
         if time.time() - self.sid_time > 3600:
-            self.api = self.client.Login(self.client.GetVarByContext("", "context_ppt"))
+            self.ppt = self.client.GetVarByContext("", "context_ppt")
+            self.api = self.client.Login(self.ppt)
             self.sid = self.api.sid
             self.uid = self.api.uid
             self.sid_time = time.time()
         return self.sid
 
-    def get_user_session(self):
-        # given a node id, find valid IPs
-        ips = list(filter(lambda x: len(x)>6, self.client.GetVar(self.get_sid(), "ips", USER_NODE_ID).split(",")))
-
-        public_ips = [ip for ip in ips if not is_local_network_ip(ip)]      # remove local network IP
-        ip = public_ips[0]
-
-        v4_ips = [ip for ip in public_ips if not is_ipv6(ip)]      # get ipv4 list
-        if len(v4_ips) > 0:
-            ip = v4_ips[0]      # v4 IP takes priority
-
-        # problem: IPv4 might be polutted by IPFS. Hprose cannot handle IPv6
-        
-        print("user node ip: ", ip)
-        user_client, session_id = self.get_user_client(ip)
-        return {"node_ip": ip, "sid": session_id}
+    def get_user_session(self, user_ip):
+        # user's Leither mode ip not used for now.
+        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
+        print(self.client.GetVar("", "ver"))
+        return self.client.GetVarByContext("", "context_ppt")
 
     def get_user_client(self, user_node_ip):
+        self.client = hprose.HttpClient('http://localhost:8004/webapi/')
+        print(self.client.GetVar("", "ver"))
+        ppt = self.client.GetVarByContext("", "context_ppt")
+
         user_client = hprose.HttpClient("http://"+ user_node_ip +"/webapi/")
-        result = user_client.Login("aj", "123456", "byname")
-        ppt = user_client.SignPPT(result.sid, {
-            "CertFor": "Self",
-            "Userid": result.uid,
-            "RequestService": "mimei"
-        }, 1)
-        user_client.RequestService(ppt)
-        return user_client, result.sid
+        user_api = user_client.Login(ppt)
+        return user_api
 
     def register_in_db(self, user: UserInDB):
         print(user)
         u = self.get_user(user.username)
         if not u:
-            user_client, client_sid = self.get_user_client(self.get_user_session()["node_ip"])
-
-            # create a mimei for the user at its mimei server
-            user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
+            # user_client, client_sid = self.get_user_client(self.get_user_session()["node_ip"])
+            # # create a mimei for the user at its mimei server
+            # user.mid = user_client.MMCreate(client_sid, '5KF-zeJy-KUQVFukKla8vKWuSoT', 'USER_MM', USER_ACCOUNT_KEY+'_'+user.username, 2, 0x07276704);
+            
             mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
             self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
