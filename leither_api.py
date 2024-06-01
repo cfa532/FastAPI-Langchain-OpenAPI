@@ -121,13 +121,16 @@ class LeitherAPI:
             # self.client.MMAddRef(self.sid, self.mid, user_mid)
             # return user
 
-    def update_user(self, user: UserInDB):
-        mmsid = self.client.MMOpen(self.get_sid(), user.mid, "cur")
+    def update_user(self, user_in: UserInDB):
+        mmsid = self.client.MMOpen(self.get_sid(), user_in.mid, "cur")
         user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
-        for attr in vars(user):
-            setattr(user_in_db, attr, getattr(user, attr))
+        if user_in.hashed_password == "":
+            del user_in.hashed_password
+
+        for attr in vars(user_in):
+            setattr(user_in_db, attr, getattr(user_in, attr))
         self.client.MFSetObject(mmsid, json.dumps(user_in_db.model_dump()))
-        self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
+        self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
 
     def delete_user(self, username: str):
         pass
