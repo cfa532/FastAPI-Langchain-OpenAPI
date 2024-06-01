@@ -12,7 +12,7 @@ USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"        # Gen8/mimei 8001
 
 class LeitherAPI:
     def __init__(self):
-        self.client = hprose.HttpClient('http://localhost:8081/webapi/')
+        self.client = hprose.HttpClient('http://localhost:8080/webapi/')
         print(self.client.GetVar("", "ver"))
         self.ppt = self.client.GetVarByContext("", "context_ppt")
         self.api = self.client.Login(self.ppt)
@@ -45,8 +45,8 @@ class LeitherAPI:
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
-        user.token_count = {"gpt-3.5": GPT_3_Tokens, "gpt-4-turbo": GPT_4_Turbo_Tokens}
-        user.token_usage = {"gpt-3.5": 0, "gpt-4-turbo": 0}
+        user.token_count = {"gpt-3.5-turbo": GPT_3_Tokens, "gpt-4-turbo": GPT_4_Turbo_Tokens}
+        user.token_usage = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
         user.current_usage = user.token_usage
         self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
         self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
@@ -69,8 +69,8 @@ class LeitherAPI:
             # a new user who has not even tried before registrating. A good man.
             # or the old mimei is deleted for testing purpose
             user_in.mid = mid
-            user_in.token_count = {"gpt-3.5": GPT_3_Tokens, "gpt-4-turbo": GPT_4_Turbo_Tokens}
-            user_in.token_usage = {"gpt-3.5": 0, "gpt-4-turbo": 0}
+            user_in.token_count = {"gpt-3.5-turbo": GPT_3_Tokens, "gpt-4-turbo": GPT_4_Turbo_Tokens}
+            user_in.token_usage = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
             user_in.current_usage = user_in.token_usage
             self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
             self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
