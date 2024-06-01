@@ -48,8 +48,8 @@ class User(BaseModel):
     
 class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI
-    token_count: Union[dict, None] = None   # how many takens left in user account
-    token_usage: Union[dict, None] = None   # accumulated tokens usage in dollar amount
+    token_count: Union[dict, None] = None   # how many tokens left in user account. For in-App purchase and all users
+    token_usage: Union[dict, None] = None   # accumulated tokens usage in dollar amount. For subscription users
     current_usage: Union[dict, None] = None # token cost for the month
 
 class UserIn(User):
