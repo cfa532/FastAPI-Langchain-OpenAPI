@@ -4,7 +4,7 @@ from utilities import UserInDB, is_ipv6, is_local_network_ip
 USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
-LEITHER_SERVER_CLIENT = hprose.HttpClient("http://localhost:8080/webapi/")
+LEITHER_SERVER_CLIENT = hprose.HttpClient("http://localhost:8081/webapi/")
 
 class LeitherAPI:
     def __init__(self):
@@ -29,6 +29,11 @@ class LeitherAPI:
             self.sid_time = time.time()
         return self.sid
 
+    def get_user_session(self, user_ip):
+        # user's Leither mode ip not used for now.
+        print(self.client.GetVar("", "ver"))
+        return self.client.GetVarByContext("", "context_ppt")   # return PPT
+    
     def register_in_db(self, user: UserInDB):
         print(user)
         if not self.get_user(user.username):
@@ -53,6 +58,9 @@ class LeitherAPI:
     def update_user(self, user: UserInDB):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, user.username)))
+        if not user.hashed_password or user.hashed_password == "":
+            # if no pasaword, do not update it.
+            del user.hashed_password
         for attr in vars(user):
             setattr(user_in_db, attr, getattr(user, attr))
         mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")

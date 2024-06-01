@@ -151,6 +151,8 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
     # if no password, do not update it
     if user.password != "":
         user_in_db["hashed_password"] = get_password_hash(user.password)
+    else:
+        user_in_db["hashed_password"] = ""
     return lapi.update_user(UserInDB(**user_in_db))
 
 @app.get(BASE_ROUTE+"/")
