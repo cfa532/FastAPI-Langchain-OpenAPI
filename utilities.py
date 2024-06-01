@@ -6,6 +6,7 @@ from pydantic import BaseModel
 from enum import Enum
 
 MAX_TOKEN = {
+    "gpt-3.5-turbo": 4096,
     "gpt-4": 4096,
     "gpt-4-turbo": 8192
 }

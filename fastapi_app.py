@@ -9,10 +9,10 @@ from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
-from openaiCBHandler import get_cost_tracker_callback
 from dotenv import load_dotenv
 load_dotenv()
 
+from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
@@ -60,10 +60,8 @@ def authenticate_user(username: str, password: str):
     user = lapi.get_user(username)
     if not user:
         return None
-    start_time = time.time()
     if not verify_password(password, user.hashed_password):
         return None
-    print("--- %s seconds ---" % (time.time() - start_time))
     return user
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
@@ -119,8 +117,12 @@ async def login_for_access_token(
 async def register_user(user: UserIn):
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
-    return lapi.register_in_db(UserInDB(**user_in_db))
-    # return False
+    if lapi.register_in_db(UserInDB(**user_in_db)):
+        return {"status": "success"}
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Username exists",
+        headers={"WWW-Authenticate": "Bearer"})
 
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
@@ -153,7 +155,9 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
         user_in_db["hashed_password"] = get_password_hash(user.password)
     else:
         user_in_db["hashed_password"] = ""
-    return lapi.update_user(UserInDB(**user_in_db))
+    
+    user_in_db = lapi.update_user(UserInDB(**user_in_db))
+    return UserOut(**user_in_db.model_dump())
 
 @app.get(BASE_ROUTE+"/")
 async def get():
@@ -167,12 +171,12 @@ async def websocket_endpoint(websocket: WebSocket):
             message = await websocket.receive_text()
             event = json.loads(message)
             print(event)
-            await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": "Message received fine", 
-                    "tokens": "111",
-                    "cost": "0.01"}))
-            continue
+            # await websocket.send_text(json.dumps({
+            #         "type": "result",
+            #         "answer": "Message received fine", 
+            #         "tokens": "111",
+            #         "cost": "0.01"}))
+            # continue
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(

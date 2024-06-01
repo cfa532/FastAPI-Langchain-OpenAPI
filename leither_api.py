@@ -55,7 +55,7 @@ class LeitherAPI:
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         return [UserInDB(**json.loads(user.value)) for user in self.client.Hgetall(mmsid, USER_ACCOUNT_KEY)]
 
-    def update_user(self, user_in: UserInDB):
+    def update_user(self, user_in: UserInDB) -> UserInDB:
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, user_in.username)))
         if user_in.hashed_password is not None and user_in.hashed_password == "":
@@ -66,6 +66,7 @@ class LeitherAPI:
         mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
         self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user_in.username, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+        return user_in_db
 
     def delete_user(self, username: str):
         mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
