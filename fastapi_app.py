@@ -147,9 +147,9 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
     if current_user.role != "admin" and current_user.username != user.username:
         raise HTTPException(status_code=400, detail="Not admin")
     user_in_db = user.model_dump(exclude=["password"])
-
+    print(user)
     # if no password, do not update it
-    if user.password != "":
+    if (user.password is not None) and (user.password != ""):
         user_in_db["hashed_password"] = get_password_hash(user.password)
     else:
         user_in_db["hashed_password"] = ""

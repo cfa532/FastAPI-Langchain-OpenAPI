@@ -45,7 +45,7 @@ class UserOut(BaseModel):
     template: Union[dict, None] = None
 
 class UserIn(UserOut):
-    password: str                           # the password is hashed in DB
+    password: Union[str, None] = None                           # the password is hashed in DB
 
 class UserInDB(UserOut):
     hashed_password: str
