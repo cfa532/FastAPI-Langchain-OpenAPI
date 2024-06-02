@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
+from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 
 from openaiCBHandler import get_cost_tracker_callback
@@ -160,7 +160,9 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
 
 @app.get(BASE_ROUTE+"/")
 async def get():
-    return HTMLResponse("Hello world.")
+    product_ids = dotenv_values(".env")["SECRETARI_PRODUCT_ID_IOS"]
+    # return HTMLResponse("Hello world.")
+    return json.loads(product_ids)
 
 @app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket):

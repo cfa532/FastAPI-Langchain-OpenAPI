@@ -1,14 +1,11 @@
 import hprose, json, time
 from datetime import datetime
 from utilities import UserInDB, UserOut
+from dotenv import load_dotenv, dotenv_values
 
 APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
-GPT_3_Tokens = 1000000      # bonus tokens upon installation
-GPT_4_Turbo_Tokens = 10000
 MIMEI_EXT = "mimei file"
-# USER_NODE_ID = "1-U-7NvW2hOWmyoiipkzno65so-"      # Mac 8004
-USER_NODE_ID = "pM6YSo4Edczo5VYM05hjsGxFtJF"        # Gen8/mimei 8001
 
 class LeitherAPI:
     def __init__(self):
@@ -30,6 +27,11 @@ class LeitherAPI:
             self.api = self.client.Login(self.ppt)
             self.sid = self.api.sid
             self.sid_time = time.time()
+
+            # reload some parameters
+            env = dotenv_values(".env")
+            self.GPT_3_Tokens = env["GPT_3_Tokens"]
+            self.GPT_4_Turbo_Tokens = env["GPT_4_Turbo_Tokens"]
         return self.sid
 
     def create_user_mm(self, username) -> str:
@@ -45,7 +47,7 @@ class LeitherAPI:
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
-        user.token_count = {"gpt-3.5-turbo": GPT_3_Tokens, "gpt-4-turbo": GPT_4_Turbo_Tokens}
+        user.token_count = {"gpt-3.5-turbo": self.GPT_3_Tokens, "gpt-4-turbo": self.GPT_4_Turbo_Tokens}
         user.token_usage = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
         user.current_usage = user.token_usage
         self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
@@ -69,7 +71,7 @@ class LeitherAPI:
             # a new user who has not even tried before registrating. A good man.
             # or the old mimei is deleted for testing purpose
             user_in.mid = mid
-            user_in.token_count = {"gpt-3.5-turbo": GPT_3_Tokens, "gpt-4-turbo": GPT_4_Turbo_Tokens}
+            user_in.token_count = {"gpt-3.5-turbo": self.GPT_3_Tokens, "gpt-4-turbo": self.GPT_4_Turbo_Tokens}
             user_in.token_usage = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
             user_in.current_usage = user_in.token_usage
             self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
