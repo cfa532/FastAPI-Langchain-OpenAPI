@@ -189,7 +189,7 @@ async def websocket_endpoint(websocket: WebSocket):
             llm_model = params["model"]
             if user.token_count[llm_model] <= 0:
                 # check default model balance.
-                llm_model = "gpt-3.5"
+                llm_model = "gpt-3.5-turbo"
                 if user.token_count[llm_model] <=0:
                     await websocket.send_text(json.dumps({
                         "type": "result",
@@ -201,9 +201,9 @@ async def websocket_endpoint(websocket: WebSocket):
 
             await websocket.send_text(json.dumps({
                 "type": "result",
-                "answer": "Message received fine", 
+                "answer": event["input"]["rawtext"], 
                 "tokens": "111",
-                "cost": "0.01",
+                "cost": "0.015",
                 "user": UserOut(**user.model_dump()).model_dump()}))
 
             lapi.bookkeeping(llm_model, 100, 0.01, user)

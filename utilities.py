@@ -7,7 +7,8 @@ from enum import Enum
 
 MAX_TOKEN = {
     "gpt-4": 4096,
-    "gpt-4-turbo": 8192
+    "gpt-4-turbo": 8192,
+    "gpt-3.5-turbo": 4096,
 }
 
 # Function to check if an IP is a local network IP
@@ -31,6 +32,12 @@ def is_ipv6(ip):
 class RoleName(str, Enum):
     user = "user"
     admin = "admin"
+
+class UserGroup(BaseModel):
+    id: int
+    name: str
+    description: str
+    users: set[str]        # list of usernames
 
 class User(BaseModel):
     username: str
