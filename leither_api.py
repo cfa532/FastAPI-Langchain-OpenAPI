@@ -6,6 +6,7 @@ from dotenv import load_dotenv, dotenv_values
 APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
 MIMEI_EXT = "mimei file"
+MIMEI_COUPON_KEY="SECRETARI_USER_COUPON_KEY"
 
 class LeitherAPI:
     def __init__(self):
@@ -18,6 +19,11 @@ class LeitherAPI:
         self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "app", "secretari backend", 2, 0x07276705)
         self.sid_time = time.time()
 
+        env = dotenv_values(".env")
+        self.GPT_3_balance = float(env["GPT_3_BONUS"])
+        self.GPT_4_turbo_balance = float(env["GPT_4_BONUS"])
+        self.cost_efficiency = float(env["COST_EFFICIENCY"])
+
         print("sid  ", self.sid)
         print("uid  ", self.uid)
         print("mid  ", self.mid)
@@ -28,10 +34,11 @@ class LeitherAPI:
             self.sid = self.api.sid
             self.sid_time = time.time()
 
-            # reload some parameters
+            # reload some parameters. Every hour with the sid update
             env = dotenv_values(".env")
-            self.GPT_3_Tokens = env["GPT_3_Tokens"]
-            self.GPT_4_Turbo_Tokens = env["GPT_4_Turbo_Tokens"]
+            self.GPT_3_balance = float(env["GPT_3_BONUS"])
+            self.GPT_4_turbo_balance = float(env["GPT_4_BONUS"])
+            self.cost_efficiency = float(env["COST_EFFICIENCY"])
         return self.sid
 
     def create_user_mm(self, username) -> str:
@@ -47,9 +54,9 @@ class LeitherAPI:
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
-        user.token_count = {"gpt-3.5-turbo": self.GPT_3_Tokens, "gpt-4-turbo": self.GPT_4_Turbo_Tokens}
-        user.token_usage = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
-        user.current_usage = user.token_usage
+        user.dollar_balance = {"gpt-3.5-turbo": self.GPT_3_balance, "gpt-4-turbo": self.GPT_4_turbo_balance}
+        user.monthly_usage = {datetime.date.today().month: 0}
+        user.dollar_usage = 0
         self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
         self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
         self.client.MMAddRef(self.sid, self.mid, user.mid)
@@ -71,9 +78,10 @@ class LeitherAPI:
             # a new user who has not even tried before registrating. A good man.
             # or the old mimei is deleted for testing purpose
             user_in.mid = mid
-            user_in.token_count = {"gpt-3.5-turbo": self.GPT_3_Tokens, "gpt-4-turbo": self.GPT_4_Turbo_Tokens}
-            user_in.token_usage = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
-            user_in.current_usage = user_in.token_usage
+            user_in.dollar_balance = {"gpt-3.5-turbo": self.GPT_3_balance, "gpt-4-turbo": self.GPT_4_turbo_balance}
+            user_in.monthly_usage = {datetime.date.today().month: 0}
+            user_in.dollar_usage = 0
+
             self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
             self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, user_in.mid)
@@ -134,19 +142,38 @@ class LeitherAPI:
         self.client.MFSetObject(mmsid, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
 
+    def cash_coupon(self, user_in: UserInDB, coupon: str):
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "cur")
+        coupon_in_db = self.client.Hget(mmsid, MIMEI_COUPON_KEY, coupon)
+        # coupon_in_db = {model:"gpt-4-turbo", redeemed: false, amount: 1001000, expiration_date: 1672588674}
+        if not coupon_in_db and not coupon_in_db.used and time.time() < coupon_in_db.expiration_date:
+            return False
+        # redeem the coupon
+        mmsid = self.client.MMOpen(self.sid, user_in.mid, "cur")
+        user_in.dollar_balance[coupon_in_db["model"]] += coupon_in_db.amount
+        self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
+        self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
+
+        coupon_in_db.redeemed = True
+        coupon_in_db.expiration_date = time.time()
+        self.client.Hset(mmsid, MIMEI_COUPON_KEY, coupon, (coupon_in_db))
+        self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+        return True
+
     def delete_user(self, username: str):
         pass
 
-    def bookkeeping(self, llm, total_tokens, total_cost, user_in_db: UserInDB):
-        # update monthly expense.
-        user_in_db.token_usage[llm] += float(total_cost)    # total usage in dollar amount
-        user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
+    def bookkeeping(self, llm, total_cost: float, user_in_db: UserInDB):
+        # update monthly expense. Times the cost efficiency to include profit.
+        user_in_db.dollar_usage += total_cost * self.cost_efficiency    # total usage in dollar amount
+        user_in_db.dollar_balance[llm] -= total_cost * self.cost_efficiency
+
         last_month = datetime.fromtimestamp(user_in_db.timestamp).month
         current_month = datetime.now().month
         if last_month != current_month:
-            user_in_db.current_usage[llm] = float(total_cost)       # a new month
+            user_in_db.monthly_usage[current_month] = total_cost * self.cost_efficiency       # a new month
         else:
-            user_in_db.current_usage[llm] += float(total_cost)      # usage of the month
+            user_in_db.monthly_usage[current_month] += total_cost * self.cost_efficiency     # usage of the month
         user_in_db.timestamp = time.time()
         print("In bookkeeper, user in db:", user_in_db)
 

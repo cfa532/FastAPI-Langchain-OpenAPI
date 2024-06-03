@@ -125,6 +125,10 @@ async def register_temp_user(user: UserIn):
         raise HTTPException(status_code=400, detail="Failed to create temp User.")
     return user
 
+@app.post(BASE_ROUTE+"/users/redeem")
+async def cash_coupon(coupon:str, current_user: Annotated[UserOut, Depends(get_current_user)]) -> bool:
+    return lapi.cash_coupon(current_user, coupon)
+
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != id:
@@ -158,11 +162,15 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
         user_in_db["hashed_password"] = get_password_hash(user.password)
     return lapi.update_user(UserInDB(**user_in_db))
 
-@app.get(BASE_ROUTE+"/")
-async def get():
+@app.get(BASE_ROUTE+"/productids")
+async def get_productIDs():
     product_ids = dotenv_values(".env")["SECRETARI_PRODUCT_ID_IOS"]
     # return HTMLResponse("Hello world.")
     return json.loads(product_ids)
+
+@app.get(BASE_ROUTE+"/")
+async def get():
+    return HTMLResponse("Hello world.")
 
 @app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket):
@@ -189,10 +197,10 @@ async def websocket_endpoint(websocket: WebSocket):
             user = lapi.get_user(event["user"])
             
             llm_model = params["model"]
-            if user.token_count[llm_model] <= 0:
+            if user.dollar_balance[llm_model] <= 0:
                 # check default model balance.
                 llm_model = "gpt-3.5-turbo"
-                if user.token_count[llm_model] <=0:
+                if user.dollar_balance[llm_model] <=0:
                     await websocket.send_text(json.dumps({
                         "type": "result",
                         "answer": "Insufficient balance",
@@ -201,6 +209,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "user": UserOut(**user.model_dump())}))
                     continue
 
+            lapi.bookkeeping(llm_model, 100, 0.01, user)
             await websocket.send_text(json.dumps({
                 "type": "result",
                 "answer": event["input"]["rawtext"], 
@@ -208,7 +217,6 @@ async def websocket_endpoint(websocket: WebSocket):
                 "cost": "0.015",
                 "user": UserOut(**user.model_dump()).model_dump()}))
 
-            lapi.bookkeeping(llm_model, 100, 0.01, user)
             continue
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
             # query = event["input"]["query"]
@@ -241,10 +249,10 @@ async def websocket_endpoint(websocket: WebSocket):
                 sys.stdout.flush()
                 await websocket.send_text(json.dumps({
                     "type": "result",
-                    "answer": resp, 
+                    "answer": resp,
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
-                lapi.bookkeeping(llm_model, cb.total_tokens, cb.total_cost, event["user"])
+                lapi.bookkeeping(llm_model, cb.total_cost, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)

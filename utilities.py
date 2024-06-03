@@ -1,5 +1,4 @@
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from fastapi.responses import HTMLResponse
+from fastapi import WebSocket
 import sys, ipaddress, re, time
 from typing import Union
 from pydantic import BaseModel
@@ -55,16 +54,19 @@ class User(BaseModel):
     
 class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI
-    token_count: Union[dict, None] = None   # how many tokens left in user account. For in-App purchase and all users
-    token_usage: Union[dict, None] = None   # accumulated tokens usage in dollar amount. For subscription users
-    current_usage: Union[dict, None] = None # token cost for the month
+    dollar_balance: Union[dict, None] = None        # account balance in dollar amount. Aware of model. {model: balance}
+    monthly_usage: Union[dict, None] = None         # dollar cost per month. Ignorant of LLM model. {month: cost}
 
 class UserIn(User):
-    password: str                           # the password is hashed in DB
+    password: str                                   # the password is hashed in DB
 
 class UserInDB(UserOut):
     hashed_password: str
-    timestamp: float = time.time()
+    timestamp: float = time.time()                  # last time service is used
+    dollar_usage: Union[float, None] = None          # accumulated dollar usage. Ignorant of LLM model
+    subscription_type: Union[str, None] = None      # monthly, yearly
+    subscription_start: Union[int, None] = None     # start time
+    subscription_end: Union[int, None] = None       # end time
 
 class ConnectionManager:
     def __init__(self):
