@@ -197,10 +197,13 @@ async def websocket_endpoint(websocket: WebSocket):
             user = lapi.get_user(event["user"])
             
             llm_model = params["model"]
-            if user.dollar_balance[llm_model] <= 0:
-                # check default model balance.
+            current_month = str(datetime.now().month)
+            if (not user.subscription and user.dollar_balance[llm_model]<=0) \
+                or (user.subscription and user.monthly_usage[current_month]>20 ):
+                # check default model balance. Also set a limit on how much can be spent.
+
                 llm_model = "gpt-3.5-turbo"
-                if user.dollar_balance[llm_model] <=0:
+                if not user.subscription and user.dollar_balance[llm_model]<=0:
                     await websocket.send_text(json.dumps({
                         "type": "result",
                         "answer": "Insufficient balance",
@@ -233,7 +236,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         break
                     else:
                         query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
-            query += "Human: "+event["input"]["query"]+"\nAI:"
+            query += "Human: "+event["input"]["rawtext"]+"\nAI:"
             print(query)
             start_time = time.time()
             with get_cost_tracker_callback(llm_model) as cb:
@@ -252,6 +255,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": resp,
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
+                
                 lapi.bookkeeping(llm_model, cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect:
