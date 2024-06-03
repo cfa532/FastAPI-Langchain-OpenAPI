@@ -56,6 +56,7 @@ class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI
     dollar_balance: Union[dict, None] = None        # account balance in dollar amount. Aware of model. {model: balance}
     monthly_usage: Union[dict, None] = None         # dollar cost per month. Ignorant of LLM model. {month: cost}
+    token_count: Union[dict, None] = None          # token count per model. {model: count}
 
 class UserIn(User):
     password: str                                   # the password is hashed in DB

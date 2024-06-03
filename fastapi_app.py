@@ -209,7 +209,7 @@ async def websocket_endpoint(websocket: WebSocket):
                         "user": UserOut(**user.model_dump())}))
                     continue
 
-            lapi.bookkeeping(llm_model, 100, 0.01, user)
+            lapi.bookkeeping(llm_model, 0.015, 123, user)
             await websocket.send_text(json.dumps({
                 "type": "result",
                 "answer": event["input"]["rawtext"], 
@@ -252,7 +252,7 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": resp,
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
-                lapi.bookkeeping(llm_model, cb.total_cost, user)
+                lapi.bookkeeping(llm_model, cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)

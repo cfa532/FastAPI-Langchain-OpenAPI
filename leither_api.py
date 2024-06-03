@@ -55,7 +55,8 @@ class LeitherAPI:
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
         user.dollar_balance = {"gpt-3.5-turbo": self.GPT_3_balance, "gpt-4-turbo": self.GPT_4_turbo_balance}
-        user.monthly_usage = {datetime.date.today().month: 0}
+        user.token_count = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
+        user.monthly_usage = {datetime.now().month: 0}
         user.dollar_usage = 0
         self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
         self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
@@ -79,7 +80,8 @@ class LeitherAPI:
             # or the old mimei is deleted for testing purpose
             user_in.mid = mid
             user_in.dollar_balance = {"gpt-3.5-turbo": self.GPT_3_balance, "gpt-4-turbo": self.GPT_4_turbo_balance}
-            user_in.monthly_usage = {datetime.date.today().month: 0}
+            user_in.token_count = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
+            user_in.monthly_usage = {datetime.now().month: 0}
             user_in.dollar_usage = 0
 
             self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
@@ -163,17 +165,18 @@ class LeitherAPI:
     def delete_user(self, username: str):
         pass
 
-    def bookkeeping(self, llm, total_cost: float, user_in_db: UserInDB):
+    def bookkeeping(self, llm, total_cost: float, token_cost: int, user_in_db: UserInDB):
         # update monthly expense. Times the cost efficiency to include profit.
         user_in_db.dollar_usage += total_cost * self.cost_efficiency    # total usage in dollar amount
         user_in_db.dollar_balance[llm] -= total_cost * self.cost_efficiency
+        user_in_db.token_count[llm] += int(token_cost * self.cost_efficiency)
 
         last_month = datetime.fromtimestamp(user_in_db.timestamp).month
         current_month = datetime.now().month
         if last_month != current_month:
-            user_in_db.monthly_usage[current_month] = total_cost * self.cost_efficiency       # a new month
+            user_in_db.monthly_usage[str(current_month)] = total_cost * self.cost_efficiency       # a new month
         else:
-            user_in_db.monthly_usage[current_month] += total_cost * self.cost_efficiency     # usage of the month
+            user_in_db.monthly_usage[str(current_month)] += total_cost * self.cost_efficiency     # usage of the month
         user_in_db.timestamp = time.time()
         print("In bookkeeper, user in db:", user_in_db)
 
