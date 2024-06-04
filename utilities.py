@@ -56,7 +56,7 @@ class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI
     dollar_balance: Union[dict, None] = None        # account balance in dollar amount. Aware of model. {model: balance}
     monthly_usage: Union[dict, None] = None         # dollar cost per month. Ignorant of LLM model. {month: cost}
-    token_count: Union[dict, None] = None          # token count per model. {model: count}
+    token_count: Union[dict, None] = None           # token count per model. {model: count}
 
 class UserIn(User):
     password: str                                   # the password is hashed in DB
@@ -68,6 +68,8 @@ class UserInDB(UserOut):
     subscription_type: Union[str, None] = None      # monthly, yearly
     subscription_start: Union[int, None] = None     # start time
     subscription_end: Union[int, None] = None       # end time
+    purchase_history: Union[dict, None] = None      # purchase history. [productID: {purchase date, amount} 
+                                                    # or {start date, end date, monthly/yearly, price}
 
 class ConnectionManager:
     def __init__(self):

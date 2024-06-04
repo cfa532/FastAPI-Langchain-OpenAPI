@@ -1,4 +1,4 @@
-import json, sys, time
+import json, sys, time, httpx
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect
@@ -82,8 +82,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     return user
 
 @app.post(BASE_ROUTE+"/token")
-async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
     start_time = time.time()
     user = authenticate_user(form_data.username, form_data.password)
@@ -125,32 +124,58 @@ async def register_temp_user(user: UserIn):
         raise HTTPException(status_code=400, detail="Failed to create temp User.")
     return user
 
+# upload purchase to server
+@app.post(BASE_ROUTE+"/users/recharge")
+async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]):
+
+    # there are two piece of data in dict. Purchase receipt and other data. Confrim with Apple first.
+    url = 'https://sandbox.itunes.apple.com/verifyReceipt'  # Change to production URL in live environment
+    payload = {
+        'receipt-data': purchase["receipt"],
+        # 'password': '04df7f4eb0f04034a25081673d464e6d',  # Only needed for auto-renewable subscriptions
+    }
+    headers = {'Content-Type': 'application/json'}
+
+    async with httpx.AsyncClient() as client:
+        response = await client.post(url, json=payload, headers=headers)
+
+    if response.status_code == 200:
+        result = response.json()
+        print(result)
+        if result.get("status") != 0:
+            raise HTTPException(status_code=400, detail="Failed to verify receipt with Apple")
+        purchase["validation"] = result
+        return lapi.upload_purchase_history(current_user, purchase)
+    else:
+        raise HTTPException(status_code=response.status_code, detail="Failed to verify receipt with Apple")
+
+# redeem coupons
 @app.post(BASE_ROUTE+"/users/redeem")
-async def cash_coupon(coupon:str, current_user: Annotated[UserOut, Depends(get_current_user)]) -> bool:
+async def cash_coupon(coupon:str, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> bool:
     return lapi.cash_coupon(current_user, coupon)
 
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
-async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
+async def get_user_by_id(id: str, current_user: Annotated[UserInDB, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != id:
         raise HTTPException(status_code=400, detail="Not admin")
     return lapi.get_user(id)
     # return current_user
 
 @app.get(BASE_ROUTE+"/users/all", response_model=List[UserOut])
-async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
+async def get_all_users(current_user: Annotated[UserInDB, Depends(get_current_user)]):
     if current_user.role != "admin":
         return [UserOut(**current_user.model_dump())] 
     return lapi.get_users()
 
 @app.delete(BASE_ROUTE+"/users/{username}")
-async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
+async def delete_user_by_id(username: str, current_user: Annotated[UserInDB, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != username:
         raise HTTPException(status_code=400, detail="Not admin")
     return lapi.delete_user(username)
 
 #update user infor
 @app.put(BASE_ROUTE+"/users")
-async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depends(get_current_user)]):
+async def update_user_by_obj(user: UserIn, current_user: Annotated[UserInDB, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != user.username:
         raise HTTPException(status_code=400, detail="Not admin")
     user_in_db = user.model_dump(exclude=["password"])
@@ -162,6 +187,7 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
         user_in_db["hashed_password"] = get_password_hash(user.password)
     return lapi.update_user(UserInDB(**user_in_db))
 
+# get current product IDs
 @app.get(BASE_ROUTE+"/productids")
 async def get_productIDs():
     product_ids = dotenv_values(".env")["SECRETARI_PRODUCT_ID_IOS"]
