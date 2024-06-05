@@ -11,9 +11,11 @@ from langchain_core.outputs import LLMResult
 MY_MODEL_COST_PER_1K_TOKENS = MODEL_COST_PER_1K_TOKENS | {
     # GPT-4 input
     "gpt-4-turbo": 0.01,
+    "gpt-4o": 0.005,
 
     # GPT-4 output
     "gpt-4-turbo-completion": 0.03,
+    "gpt-4o-completion": 0.015,
 }
 
 class CostTrackerCallback(OpenAICallbackHandler):

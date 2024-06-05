@@ -184,11 +184,12 @@ class LeitherAPI:
         self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
 
-def upload_purchase_history(self, current_user: UserInDB, purchase_history):
-    if current_user.purchase_history is None:
-        current_user.purchase_history = [purchase_history]
-    else:
-        current_user.purchase_history.append(purchase_history)
-    mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
-    self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
-    self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")
+    def upload_purchase_history(self, current_user: UserInDB, purchase):
+        # purchase = {"productId": "890842", "amount": 100, "timestamp": 1672588674}
+        if current_user.purchase_history is None:
+            current_user.purchase_history = [purchase]
+        else:
+            current_user.purchase_history.append(purchase)
+        mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
+        self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
+        self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")

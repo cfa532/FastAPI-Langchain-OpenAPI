@@ -68,7 +68,7 @@ class UserInDB(UserOut):
     subscription_type: Union[str, None] = None      # monthly, yearly
     subscription_start: Union[int, None] = None     # start time
     subscription_end: Union[int, None] = None       # end time
-    purchase_history: Union[dict, None] = None      # purchase history. [productID: {purchase date, amount} 
+    purchase_history: Union[list, None] = None      # purchase history. [productID: {purchase date, amount} 
                                                     # or {start date, end date, monthly/yearly, price}
 
 class ConnectionManager:

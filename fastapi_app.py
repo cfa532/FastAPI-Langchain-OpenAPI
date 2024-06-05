@@ -17,6 +17,8 @@ from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
 
 # to get a string like this run: openssl rand -hex 32
+VERIFICATION_URL_SANDBOX="https://sandbox.itunes.apple.com/verifyReceipt"
+VERIFICATION_URL_PRODUCTION="https://buy.itunes.apple.com/verifyReceipt"
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
@@ -127,27 +129,36 @@ async def register_temp_user(user: UserIn):
 # upload purchase to server
 @app.post(BASE_ROUTE+"/users/recharge")
 async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]):
+    return lapi.upload_purchase_history(current_user, purchase)
 
     # there are two piece of data in dict. Purchase receipt and other data. Confrim with Apple first.
-    url = 'https://sandbox.itunes.apple.com/verifyReceipt'  # Change to production URL in live environment
-    payload = {
-        'receipt-data': purchase["receipt"],
-        # 'password': '04df7f4eb0f04034a25081673d464e6d',  # Only needed for auto-renewable subscriptions
-    }
-    headers = {'Content-Type': 'application/json'}
-
-    async with httpx.AsyncClient() as client:
-        response = await client.post(url, json=payload, headers=headers)
-
-    if response.status_code == 200:
-        result = response.json()
-        print(result)
-        if result.get("status") != 0:
-            raise HTTPException(status_code=400, detail="Failed to verify receipt with Apple")
-        purchase["validation"] = result
-        return lapi.upload_purchase_history(current_user, purchase)
-    else:
-        raise HTTPException(status_code=response.status_code, detail="Failed to verify receipt with Apple")
+    # payload = {
+    #     'receipt-data': purchase["receipt"],
+    #     # 'password': '04df7f4eb0f04034a25081673d464e6d',  # Only needed for auto-renewable subscriptions
+    # }
+    # headers = {'Content-Type': 'application/json'}
+    # async with httpx.AsyncClient() as client:
+    #     response = await client.post(VERIFICATION_URL_SANDBOX, json=payload, headers=headers)
+    # if response.status_code == 200:
+    #     result = response.json()
+    #     print(result)
+    #     if result.get("status") != 0:
+    #         raise HTTPException(status_code=400, detail="Failed to verify receipt with Apple")
+    #     purchase["validation"] = result
+    #     return lapi.upload_purchase_history(current_user, purchase)
+    # else:
+    #     if response.status_code == 21007:
+    #             async with httpx.AsyncClient() as client:
+    #                 response = await client.post(VERIFICATION_URL_PRODUCTION, json=payload, headers=headers)
+    #             if response.status_code == 200:
+    #                 result = response.json()
+    #                 print(result)
+    #                 if result.get("status") != 0:
+    #                     raise HTTPException(status_code=400, detail="Failed to verify receipt with Apple")
+    #                 purchase["validation"] = result
+    #                 return lapi.upload_purchase_history(current_user, purchase)
+    #     else:
+    #         raise HTTPException(status_code=response.status_code, detail="Failed to verify receipt with Apple")
 
 # redeem coupons
 @app.post(BASE_ROUTE+"/users/redeem")
@@ -193,6 +204,11 @@ async def get_productIDs():
     product_ids = dotenv_values(".env")["SECRETARI_PRODUCT_ID_IOS"]
     # return HTMLResponse("Hello world.")
     return json.loads(product_ids)
+
+@app.post(BASE_ROUTE+"/app_server_notifications")
+async def apple_notifications(notification):
+    print("notification: ", notification)
+    return HTMLResponse("Success")
 
 @app.get(BASE_ROUTE+"/")
 async def get():
