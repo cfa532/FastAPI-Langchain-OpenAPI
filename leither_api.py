@@ -83,7 +83,7 @@ class LeitherAPI:
             user_in_db.token_usage[llm] = float(total_cost)
 
         if user_in_db.token_count.get(llm):
-            user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
+            user_in_db.token_count[llm] = max(user_in_db.token_count[llm] - int(total_tokens), 0)
         else:
             user_in_db.token_count[llm] = 1000,000
 
