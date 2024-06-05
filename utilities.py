@@ -8,7 +8,8 @@ from enum import Enum
 MAX_TOKEN = {
     "gpt-3.5-turbo": 4096,
     "gpt-4": 4096,
-    "gpt-4-turbo": 8192
+    "gpt-4-turbo": 8192,
+    "gpt-4o": 8192,
 }
 
 # Function to check if an IP is a local network IP
@@ -38,8 +39,8 @@ class UserOut(BaseModel):
     subscription: bool = False
     role: str = RoleName.user.value
     mid: Union[str, None] = None            # mimei id of this user
-    token_count: Union[dict, None] = None    # how many takens left in user account
-    token_usage: Union[dict, None] = None    # accumulated tokens used in user account
+    token_count: Union[dict, None] = None    # how many takens used in user account
+    token_usage: Union[dict, None] = None    # accumulated money used in user account
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None

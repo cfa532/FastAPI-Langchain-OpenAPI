@@ -29,7 +29,7 @@ class LeitherAPI:
             self.sid_time = time.time()
         return self.sid
 
-    def get_user_session(self, user_ip):
+    def get_ppt(self):
         # user's Leither mode ip not used for now.
         print(self.client.GetVar("", "ver"))
         return self.client.GetVarByContext("", "context_ppt")   # return PPT
@@ -83,9 +83,9 @@ class LeitherAPI:
             user_in_db.token_usage[llm] = float(total_cost)
 
         if user_in_db.token_count.get(llm):
-            user_in_db.token_count[llm] = max(user_in_db.token_count[llm] - int(total_tokens), 0)
+            user_in_db.token_count[llm] += total_tokens
         else:
-            user_in_db.token_count[llm] = 1000,000
+            user_in_db.token_count[llm] = total_tokens
 
         mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
         self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user_in_db.model_dump()))

@@ -111,7 +111,8 @@ async def login_for_access_token(
     )
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
-    return {"token": token, "user": user_out, "session": lapi.get_user_session(form_data.client_id)}    #pass user's Leither node IP
+    print(user)
+    return {"token": token, "user": user_out, "session": lapi.get_ppt()}    #pass user's Leither node IP
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
