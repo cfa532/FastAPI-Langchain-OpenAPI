@@ -95,8 +95,8 @@ class CostTrackerCallback(OpenAICallbackHandler):
 
     def on_llm_end(self, response: LLMResult, **kwargs: Any) -> None:
         """Run when chain ends running."""
-        text_response = response.generations[0][0].text
-        encoding = tiktoken.get_encoding("cl100k_base")
+        # text_response = response.generations[0][0].text
+        # encoding = tiktoken.get_encoding("cl100k_base")
         # self.completion_tokens = len(encoding.encode(text_response))
         model_name = standardize_model_name(self.model_name)
         if model_name in MODEL_COST_PER_1K_TOKENS:
