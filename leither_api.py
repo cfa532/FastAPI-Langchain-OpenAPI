@@ -76,8 +76,16 @@ class LeitherAPI:
     def bookkeeping(self, llm, total_cost, total_tokens, username):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, username)))
-        user_in_db.token_usage[llm] += float(total_cost)
-        user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
+
+        if user_in_db.token_usage.get(llm):
+            user_in_db.token_usage[llm] += float(total_cost)
+        else:
+            user_in_db.token_usage[llm] = float(total_cost)
+
+        if user_in_db.token_count.get(llm):
+            user_in_db.token_count[llm] = max(user_in_db.token_count[llm]-int(total_tokens), 0)
+        else:
+            user_in_db.token_count[llm] = 1000,000
 
         mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
         self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user_in_db.model_dump()))
