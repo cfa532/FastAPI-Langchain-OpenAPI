@@ -245,9 +245,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         connectionManager.disconnect(websocket)
     except JWTError:
         print("JWTError")
+        sys.stdout.flush()
         connectionManager.disconnect(websocket)
-    except HTTPException:
-        print("HTTPException")
+    except HTTPException as e:
+        print("HTTPException", e)
+        sys.stdout.flush()
         connectionManager.disconnect(websocket)
     finally:
         if websocket.client_state == WebSocketState.CONNECTED:
