@@ -7,6 +7,7 @@ APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
 MIMEI_EXT = "mimei file"
 MIMEI_COUPON_KEY="SECRETARI_USER_COUPON_KEY"
+LLM_MODEL = "gpt-4o"
 
 class LeitherAPI:
     def __init__(self):
@@ -19,10 +20,13 @@ class LeitherAPI:
         self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "app", "secretari backend", 2, 0x07276705)
         self.sid_time = time.time()
 
+        # user .env to update important parameters. To update app settings without reboot.
         env = dotenv_values(".env")
-        self.GPT_3_balance = float(env["GPT_3_BONUS"])
-        self.GPT_4_turbo_balance = float(env["GPT_4_BONUS"])
+        self.init_balance = float(env["SIGNUP_BONUS"])
         self.cost_efficiency = float(env["COST_EFFICIENCY"])
+
+        # export it to fastapi.py as defualt LLM model
+        LLM_MODEL = env["CURRENT_LLM_MODEL"] 
 
         print("sid  ", self.sid)
         print("uid  ", self.uid)
@@ -36,9 +40,9 @@ class LeitherAPI:
 
             # reload some parameters. Every hour with the sid update
             env = dotenv_values(".env")
-            self.GPT_3_balance = float(env["GPT_3_BONUS"])
-            self.GPT_4_turbo_balance = float(env["GPT_4_BONUS"])
+            self.init_balance = float(env["SIGNUP_BONUS"])
             self.cost_efficiency = float(env["COST_EFFICIENCY"])
+            LLM_MODEL = env["CURRENT_LLM_MODEL"] 
         return self.sid
 
     def create_user_mm(self, username) -> str:
@@ -54,8 +58,8 @@ class LeitherAPI:
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
-        user.dollar_balance = {"gpt-3.5-turbo": self.GPT_3_balance, "gpt-4-turbo": self.GPT_4_turbo_balance}
-        user.token_count = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
+        user.dollar_balance = self.init_balance
+        user.token_count = 0
         user.monthly_usage = {datetime.now().month: 0}
         user.dollar_usage = 0
         self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
@@ -79,8 +83,8 @@ class LeitherAPI:
             # a new user who has not even tried before registrating. A good man.
             # or the old mimei is deleted for testing purpose
             user_in.mid = mid
-            user_in.dollar_balance = {"gpt-3.5-turbo": self.GPT_3_balance, "gpt-4-turbo": self.GPT_4_turbo_balance}
-            user_in.token_count = {"gpt-3.5-turbo": 0, "gpt-4-turbo": 0}
+            user_in.dollar_balance = self.init_balance
+            user_in.token_count = 0
             user_in.monthly_usage = {datetime.now().month: 0}
             user_in.dollar_usage = 0
 
@@ -184,12 +188,18 @@ class LeitherAPI:
         self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
 
+    # keep a record of all the purchase and subscriptions a customer made.
     def upload_purchase_history(self, current_user: UserInDB, purchase):
-        # purchase = {"productId": "890842", "amount": 100, "timestamp": 1672588674}
+        # purchase = {"productId": "890842", "amount": 8990, "timestamp": 1672588674}
+        purchase["balance"] = current_user.dollar_balance       # in case of a refund, need to know how much to refund.
         if current_user.purchase_history is None:
             current_user.purchase_history = [purchase]
         else:
             current_user.purchase_history.append(purchase)
+
+        # Attention: The amount is convert to integer. $8.99 is 8990
+        current_user.dollar_balance[purchase["model"]] += int(purchase["amount"])
+
         mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
         self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
         self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")

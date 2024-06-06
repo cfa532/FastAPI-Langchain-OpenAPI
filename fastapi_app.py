@@ -12,7 +12,7 @@ from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 
 from openaiCBHandler import get_cost_tracker_callback
-from leither_api import LeitherAPI
+from leither_api import LeitherAPI, LLM_MODEL
 from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
 
@@ -116,7 +116,7 @@ async def register_user(user: UserIn) -> UserOut:
     return user
 
 @app.post(BASE_ROUTE+"/users/temp")
-async def register_temp_user(user: UserIn):
+async def register_temp_user(user: UserIn) -> UserOut:
     # A temp user has assigned username, usuall the device identifier. It does not login, so no taken is needed.
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
@@ -238,14 +238,14 @@ async def websocket_endpoint(websocket: WebSocket):
             # check user account balance. If current model has not balance, use the cheaper default one.
             user = lapi.get_user(event["user"])
             
-            llm_model = params["model"]
+            llm_model = LLM_MODEL
             current_month = str(datetime.now().month)
-            if (not user.subscription and user.dollar_balance[llm_model]<=0) \
+            if (not user.subscription and user.dollar_balance <0.5) \
                 or (user.subscription and user.monthly_usage[current_month]>20 ):
                 # check default model balance. Also set a limit on how much can be spent.
 
                 llm_model = "gpt-3.5-turbo"
-                if not user.subscription and user.dollar_balance[llm_model]<=0:
+                if not user.subscription and user.dollar_balance <=0:
                     await websocket.send_text(json.dumps({
                         "type": "result",
                         "answer": "Insufficient balance",
