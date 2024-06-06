@@ -188,7 +188,7 @@ class LeitherAPI:
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
 
     # keep a record of all the purchase and subscriptions a customer made.
-    def upload_purchase_history(self, current_user: UserInDB, purchase) -> UserInDB:
+    def upload_purchase_history(self, current_user: UserInDB, purchase) -> UserOut:
         # purchase = {"productId": "890842", "amount": 8990, "timestamp": 1672588674}
         purchase["balance"] = current_user.dollar_balance       # remember the dollar balance at the time of recharge,
                                                                 # in case of a refund, need to know how much to refund.

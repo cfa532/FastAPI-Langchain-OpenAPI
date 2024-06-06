@@ -39,7 +39,6 @@ class User(BaseModel):
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
-    template: Union[dict, None] = None      # parameters for LLM
 
     # def model_dump(self, exclude: list = []):
     #     if "password" in exclude:

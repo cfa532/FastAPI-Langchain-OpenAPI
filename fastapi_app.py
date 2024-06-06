@@ -124,7 +124,7 @@ async def register_user(user: UserIn) -> UserOut:
     return user
 
 @app.post(BASE_ROUTE+"/users/temp")
-async def register_temp_user(user: UserIn) -> UserOut:
+async def register_temp_user(user: UserIn):
     # A temp user has assigned username, usuall the device identifier. It does not login, so no taken is needed.
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
@@ -132,11 +132,19 @@ async def register_temp_user(user: UserIn) -> UserOut:
     print("temp user created. ", user)
     if not user:
         raise HTTPException(status_code=400, detail="Failed to create temp User.")
-    return user
+    
+    access_token_expires = timedelta(weeks=ACCESS_TOKEN_EXPIRE)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    token = Token(access_token=access_token, token_type="Bearer")
+
+    # create a token for temp user too, so they can buy product and access premium service without login.
+    return {"token": token, "user": user}
 
 # upload purchase to server
 @app.post(BASE_ROUTE+"/users/recharge")
-async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]):
+async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
     print("purchase:", purchase)
     return lapi.upload_purchase_history(current_user, purchase)
 
