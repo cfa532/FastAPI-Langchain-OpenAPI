@@ -5,13 +5,6 @@ from typing import Union
 from pydantic import BaseModel
 from enum import Enum
 
-MAX_TOKEN = {
-    "gpt-3.5-turbo": 4096,
-    "gpt-4": 4096,
-    "gpt-4-turbo": 8192,
-    "gpt-4o": 8192,
-}
-
 # Function to check if an IP is a local network IP
 def is_local_network_ip(ip):
     addr = re.findall(r'\[(.+)\]', ip[:ip.rfind(':')])

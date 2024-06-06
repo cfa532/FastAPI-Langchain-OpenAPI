@@ -1,12 +1,14 @@
-import json, sys, bcrypt, time
+import json, sys, bcrypt, time, os
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect, APIRouter
+from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
+from fastapi.responses import JSONResponse, HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
+# from fastapi_jwt_auth import AuthJWT
+from starlette.websockets import WebSocketState
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -14,15 +16,26 @@ load_dotenv()
 
 from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
-from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
+from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
 
 # to get a string like this run:
 # openssl rand -hex 32
-SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
+MAX_TOKEN = {
+    "gpt-3.5-turbo": 4096,
+    "gpt-4": 4096,
+    "gpt-4-turbo": 8192,
+    "gpt-4o": 8192,
+}
+SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
 BASE_ROUTE = "/aichat"
+credentials_exception = HTTPException(
+    status_code=status.HTTP_401_UNAUTHORIZED,
+    detail="Could not validate credentials",
+    headers={"WWW-Authenticate": "Bearer"},
+)
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
 
@@ -75,11 +88,6 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     return encoded_jwt
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
@@ -93,10 +101,8 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         raise credentials_exception
     return user
 
-
 @app.post(BASE_ROUTE+"/token")
-async def login_for_access_token(
-    form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
@@ -165,9 +171,19 @@ async def get():
     return HTMLResponse("Hello world.")
 
 @app.websocket(BASE_ROUTE+"/ws/")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     await connectionManager.connect(websocket)
     try:
+        # token = websocket.query_params.get("token")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise WebSocketDisconnect
+        token_data = TokenData(username=username)
+        user = lapi.get_user(username=token_data.username)
+        print(user)
+        if not user:
+            raise WebSocketDisconnect
         while True:
             message = await websocket.receive_text()
             event = json.loads(message)
@@ -177,6 +193,7 @@ async def websocket_endpoint(websocket: WebSocket):
             #         "answer": "Message received fine", 
             #         "tokens": "111",
             #         "cost": "0.01"}))
+            # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
             # continue
             params = event["parameters"]
             if params["llm"] == "openai":
@@ -222,11 +239,19 @@ async def websocket_endpoint(websocket: WebSocket):
                     "answer": resp, 
                     "tokens": cb.total_tokens,
                     "cost": cb.total_cost}))
-                lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, event["user"])
+                lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
-
+    except JWTError:
+        print("JWTError")
+        connectionManager.disconnect(websocket)
+    except HTTPException:
+        print("HTTPException")
+        connectionManager.disconnect(websocket)
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
 # if __name__ == "__main__":
 #     import uvicorn
 #     uvicorn.run(app, host="0.0.0.0", port=8506)

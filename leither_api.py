@@ -73,9 +73,9 @@ class LeitherAPI:
         self.client.Hdel(mmsid_cur, USER_ACCOUNT_KEY, username)
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
 
-    def bookkeeping(self, llm, total_cost, total_tokens, username):
-        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
-        user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, username)))
+    def bookkeeping(self, llm, total_cost: float, total_tokens: int, user_in_db: UserInDB):
+        # mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
+        # user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, user.username)))
 
         if user_in_db.token_usage.get(llm):
             user_in_db.token_usage[llm] += float(total_cost)
@@ -88,7 +88,7 @@ class LeitherAPI:
             user_in_db.token_count[llm] = total_tokens
 
         mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
-        self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, username, json.dumps(user_in_db.model_dump()))
+        self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user_in_db.username, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
 
     # def get_user(username, password, identifier):
