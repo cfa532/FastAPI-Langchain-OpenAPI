@@ -1,9 +1,10 @@
 import json, sys, time, httpx
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Request, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
+from starlette.websockets import WebSocketState
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
@@ -13,7 +14,7 @@ load_dotenv()
 
 from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI, LLM_MODEL
-from utilities import ConnectionManager, MAX_TOKEN, UserIn, UserOut, UserInDB
+from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
 
 # to get a string like this run: openssl rand -hex 32
@@ -21,8 +22,14 @@ VERIFICATION_URL_SANDBOX="https://sandbox.itunes.apple.com/verifyReceipt"
 VERIFICATION_URL_PRODUCTION="https://buy.itunes.apple.com/verifyReceipt"
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
+ACCESS_TOKEN_EXPIRE = 480   # expires
 BASE_ROUTE = "/secretari"
+MAX_TOKEN = {
+    "gpt-4o": 8192,
+    "gpt-4": 4096,
+    "gpt-4-turbo": 8192,
+    "gpt-3.5-turbo": 4096,
+}
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
 
@@ -65,6 +72,7 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     return encoded_jwt
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
+    print("token:", token)
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
@@ -94,7 +102,7 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token_expires = timedelta(weeks=ACCESS_TOKEN_EXPIRE)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
@@ -129,6 +137,7 @@ async def register_temp_user(user: UserIn) -> UserOut:
 # upload purchase to server
 @app.post(BASE_ROUTE+"/users/recharge")
 async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]):
+    print("purchase:", purchase)
     return lapi.upload_purchase_history(current_user, purchase)
 
     # there are two piece of data in dict. Purchase receipt and other data. Confrim with Apple first.
@@ -159,6 +168,10 @@ async def upload_purchase_history(purchase: dict, current_user: Annotated[UserIn
     #                 return lapi.upload_purchase_history(current_user, purchase)
     #     else:
     #         raise HTTPException(status_code=response.status_code, detail="Failed to verify receipt with Apple")
+
+@app.post(BASE_ROUTE + "/users/subscribe")
+async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]):
+    return lapi.subscribe_user(current_user, subscription)
 
 # redeem coupons
 @app.post(BASE_ROUTE+"/users/redeem")
@@ -215,9 +228,20 @@ async def get():
     return HTMLResponse("Hello world.")
 
 @app.websocket(BASE_ROUTE+"/ws/")
-async def websocket_endpoint(websocket: WebSocket):
+async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
     await connectionManager.connect(websocket)
     try:
+        # token = websocket.query_params.get("token")
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise WebSocketDisconnect
+        token_data = TokenData(username=username)
+        user = lapi.get_user(username=token_data.username)
+        print(user)
+        if not user:
+            raise WebSocketDisconnect
+        
         while True:
             message = await websocket.receive_text()
             event = json.loads(message)
@@ -258,8 +282,8 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.send_text(json.dumps({
                 "type": "result",
                 "answer": event["input"]["rawtext"], 
-                "tokens": "111",
-                "cost": "0.015",
+                "tokens": 111,
+                "cost": 0.015,
                 "user": UserOut(**user.model_dump()).model_dump()}))
 
             continue
@@ -302,6 +326,17 @@ async def websocket_endpoint(websocket: WebSocket):
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
+    except JWTError:
+        print("JWTError")
+        sys.stdout.flush()
+        connectionManager.disconnect(websocket)
+    except HTTPException as e:
+        print("HTTPException", e)
+        sys.stdout.flush()
+        connectionManager.disconnect(websocket)
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
 
 # if __name__ == "__main__":
 #     import uvicorn

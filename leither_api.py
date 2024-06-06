@@ -50,9 +50,8 @@ class LeitherAPI:
     
     def register_temp_user(self, user: UserInDB) -> UserOut:
         user.mid = self.create_user_mm(user.username)
-        mmsid = self.client.MMOpen(self.get_sid(), user.mid, "cur")
-        user_in_db = self.client.MFGetObject(mmsid)
-        if user_in_db:
+        mmsid = self.client.MMOpen(self.get_sid(), user.mid, "cur")     # exception if "last" and user does not exist
+        if self.client.MFGetObject(mmsid):
             # the created mid is not empty, the username is taken.
             print("Temp user exists. Reuse it.")
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
@@ -189,17 +188,39 @@ class LeitherAPI:
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
 
     # keep a record of all the purchase and subscriptions a customer made.
-    def upload_purchase_history(self, current_user: UserInDB, purchase):
+    def upload_purchase_history(self, current_user: UserInDB, purchase) -> UserInDB:
         # purchase = {"productId": "890842", "amount": 8990, "timestamp": 1672588674}
-        purchase["balance"] = current_user.dollar_balance       # in case of a refund, need to know how much to refund.
+        purchase["balance"] = current_user.dollar_balance       # remember the dollar balance at the time of recharge,
+                                                                # in case of a refund, need to know how much to refund.
+        # Attention: The amount is convert to integer. $8.99 is 8990
+        current_user.dollar_balance += float(purchase["amount"])
+        current_user.accured_total += float(purchase["amount"])        # revenue from the user.
+
         if current_user.purchase_history is None:
             current_user.purchase_history = [purchase]
         else:
             current_user.purchase_history.append(purchase)
 
-        # Attention: The amount is convert to integer. $8.99 is 8990
-        current_user.dollar_balance[purchase["model"]] += int(purchase["amount"])
+        mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
+        self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
+        self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")
+
+        print("After recharge:", current_user)
+        return current_user
+
+    def subscribe_user(self, current_user, subscription) -> UserInDB:
+        current_user.subscription = True
+        current_user.subscription_plan = subscription["plan"]
+        current_user.subscription_start = subscription["start_date"]
+
+        if current_user.purchase_history is None:
+            current_user.purchase_history = [subscription]
+        else:
+            current_user.purchase_history.append(subscription)
 
         mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
         self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
         self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")
+
+        print("After subscription:", current_user)
+        return current_user

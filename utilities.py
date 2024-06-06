@@ -4,12 +4,6 @@ from typing import Union
 from pydantic import BaseModel
 from enum import Enum
 
-MAX_TOKEN = {
-    "gpt-4": 4096,
-    "gpt-4-turbo": 8192,
-    "gpt-3.5-turbo": 4096,
-}
-
 # Function to check if an IP is a local network IP
 def is_local_network_ip(ip):
     addr = re.findall(r'\[(.+)\]', ip[:ip.rfind(':')])
@@ -54,8 +48,8 @@ class User(BaseModel):
     
 class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI
-    dollar_balance: float                           # account balance in dollar amount. ignorant of model. 
-                                                    # revert to gpt-3.5 when balance < 0.5
+    dollar_balance: float = 0.0                     # account balance in dollar amount. ignorant of model. 
+                                                    # revert to gpt-3.5 when balance < 0.1, signup bonus 0.2
     monthly_usage: Union[dict, None] = None         # dollar cost per month. Ignorant of LLM model. {month: cost}
     token_count: int = 0                            # token count
 
@@ -65,11 +59,11 @@ class UserIn(User):
 class UserInDB(UserOut):
     hashed_password: str
     timestamp: float = time.time()                  # last time service is used
-    dollar_usage: float = 0                         # accumulated dollar usage. Ignorant of LLM model
-    accured_total: float = 0                        # accumulated dollar cost. Ignorant of LLM model
-    subscription_type: Union[str, None] = None      # monthly, yearly
-    subscription_start: Union[int, None] = None     # start time
-    subscription_end: Union[int, None] = None       # end time
+    dollar_usage: float = 0.0                       # accumulated dollar usage. Ignorant of LLM model
+    accured_total: float = 0.0                      # accumulated revenue, consumables and subscriptions.
+    subscription_plan: Union[str, None] = None      # monthly, yearly
+    subscription_start: Union[float, None] = None     # start time
+    subscription_end: Union[float, None] = None       # end time
     purchase_history: Union[list, None] = None      # purchase history. {productID, purchase date, amount, balance} 
                                                     # or {start date, end date, monthly/yearly, price}
 
