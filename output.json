@@ -1,0 +1,190 @@
+{
+    "data": [
+        {
+            "type": "users",
+            "id": "48dc51d6-225c-4e92-93e8-7abe572cbd71",
+            "attributes": {
+                "username": "theocrasyzhu@hotmail.com",
+                "firstName": "Jack",
+                "lastName": "Zhu",
+                "roles": [
+                    "DEVELOPER",
+                    "CUSTOMER_SUPPORT"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": false
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/48dc51d6-225c-4e92-93e8-7abe572cbd71/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/48dc51d6-225c-4e92-93e8-7abe572cbd71/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/48dc51d6-225c-4e92-93e8-7abe572cbd71"
+            }
+        },
+        {
+            "type": "users",
+            "id": "99fe7813-04ef-4ab9-82ed-e1358d5a772e",
+            "attributes": {
+                "username": "sujudu20020301@icloud.com",
+                "firstName": "\u5c45\u7763",
+                "lastName": "\u8607",
+                "roles": [
+                    "DEVELOPER"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": false
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/99fe7813-04ef-4ab9-82ed-e1358d5a772e/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/99fe7813-04ef-4ab9-82ed-e1358d5a772e/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/99fe7813-04ef-4ab9-82ed-e1358d5a772e"
+            }
+        },
+        {
+            "type": "users",
+            "id": "a8bad34b-87af-4caa-9101-0e9ca7625061",
+            "attributes": {
+                "username": "ns189hung@gmail.com",
+                "firstName": "Lichuan",
+                "lastName": "Hung",
+                "roles": [
+                    "DEVELOPER"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": false
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/a8bad34b-87af-4caa-9101-0e9ca7625061/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/a8bad34b-87af-4caa-9101-0e9ca7625061/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/a8bad34b-87af-4caa-9101-0e9ca7625061"
+            }
+        },
+        {
+            "type": "users",
+            "id": "b3ca454a-9850-4b53-96d0-4a222e2b647e",
+            "attributes": {
+                "username": "ethan329@gmail.com",
+                "firstName": "\u555f\u9298",
+                "lastName": "\u5433",
+                "roles": [
+                    "DEVELOPER"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": false
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/b3ca454a-9850-4b53-96d0-4a222e2b647e/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/b3ca454a-9850-4b53-96d0-4a222e2b647e/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/b3ca454a-9850-4b53-96d0-4a222e2b647e"
+            }
+        },
+        {
+            "type": "users",
+            "id": "b89fb909-93ba-40d6-9325-08954420ad0f",
+            "attributes": {
+                "username": "cfa532@yahoo.com",
+                "firstName": "\u65b9",
+                "lastName": "\u8d85",
+                "roles": [
+                    "ADMIN",
+                    "ACCOUNT_HOLDER"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": true
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/b89fb909-93ba-40d6-9325-08954420ad0f/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/b89fb909-93ba-40d6-9325-08954420ad0f/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/b89fb909-93ba-40d6-9325-08954420ad0f"
+            }
+        },
+        {
+            "type": "users",
+            "id": "be28853c-c7f7-48a8-a9d6-97c305930f9b",
+            "attributes": {
+                "username": "sonfang0306@gmail.com",
+                "firstName": "\u4ee5\u6492",
+                "lastName": "\u65b9",
+                "roles": [
+                    "DEVELOPER"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": false
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/be28853c-c7f7-48a8-a9d6-97c305930f9b/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/be28853c-c7f7-48a8-a9d6-97c305930f9b/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/be28853c-c7f7-48a8-a9d6-97c305930f9b"
+            }
+        },
+        {
+            "type": "users",
+            "id": "d266940e-4a49-4099-901f-88b50789544a",
+            "attributes": {
+                "username": "ajia.newlife@gmail.com",
+                "firstName": "\u9752",
+                "lastName": "\u5e9e",
+                "roles": [
+                    "DEVELOPER"
+                ],
+                "allAppsVisible": true,
+                "provisioningAllowed": false
+            },
+            "relationships": {
+                "visibleApps": {
+                    "links": {
+                        "self": "https://api.appstoreconnect.apple.com/v1/users/d266940e-4a49-4099-901f-88b50789544a/relationships/visibleApps",
+                        "related": "https://api.appstoreconnect.apple.com/v1/users/d266940e-4a49-4099-901f-88b50789544a/visibleApps"
+                    }
+                }
+            },
+            "links": {
+                "self": "https://api.appstoreconnect.apple.com/v1/users/d266940e-4a49-4099-901f-88b50789544a"
+            }
+        }
+    ],
+    "links": {
+        "self": "https://api.appstoreconnect.apple.com/v1/users?limit=200"
+    },
+    "meta": {
+        "paging": {
+            "total": 7,
+            "limit": 200
+        }
+    }
+}

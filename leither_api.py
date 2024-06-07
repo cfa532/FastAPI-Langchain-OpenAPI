@@ -208,7 +208,7 @@ class LeitherAPI:
         print("After recharge:", current_user)
         return current_user
 
-    def subscribe_user(self, current_user, subscription) -> UserInDB:
+    def subscribe_user(self, current_user, subscription) -> UserOut:
         current_user.subscription = True
         current_user.subscription_plan = subscription["plan"]
         current_user.subscription_start = subscription["start_date"]

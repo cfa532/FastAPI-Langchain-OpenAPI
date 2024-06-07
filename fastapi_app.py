@@ -178,7 +178,7 @@ async def upload_purchase_history(purchase: dict, current_user: Annotated[UserIn
     #         raise HTTPException(status_code=response.status_code, detail="Failed to verify receipt with Apple")
 
 @app.post(BASE_ROUTE + "/users/subscribe")
-async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]):
+async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
     return lapi.subscribe_user(current_user, subscription)
 
 # redeem coupons
