@@ -1,7 +1,7 @@
 import json, sys, time, httpx
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
+from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from starlette.websockets import WebSocketState
@@ -16,6 +16,7 @@ from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI, LLM_MODEL
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
+from test_apple_notification import decode_notification
 
 # to get a string like this run: openssl rand -hex 32
 VERIFICATION_URL_SANDBOX="https://sandbox.itunes.apple.com/verifyReceipt"
@@ -183,7 +184,7 @@ async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, D
 
 # redeem coupons
 @app.post(BASE_ROUTE+"/users/redeem")
-async def cash_coupon(coupon:str, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> bool:
+async def cash_coupon(coupon: str, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> bool:
     return lapi.cash_coupon(current_user, coupon)
 
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
@@ -227,9 +228,9 @@ async def get_productIDs():
     return json.loads(product_ids)
 
 @app.post(BASE_ROUTE+"/app_server_notifications")
-async def apple_notifications(notification):
-    print("notification: ", notification)
-    return HTMLResponse("Success")
+async def apple_notifications(request: Request):
+    body = await request.json()
+    await decode_notification(body["signedPayload"])
 
 @app.get(BASE_ROUTE+"/")
 async def get():
