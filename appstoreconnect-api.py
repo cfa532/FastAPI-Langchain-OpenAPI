@@ -8,7 +8,7 @@ EXPIRATION_TIME = int(round(time.time() + (20.0 * 60.0))) # 20 minutes timestamp
 PATH_TO_KEY = './AuthKey_58MT2N3H4G.p8'
 with open(PATH_TO_KEY, 'r') as f:
     PRIVATE_KEY = f.read()
-
+print(PRIVATE_KEY)
 header = {
     "alg": "ES256",
     "kid": KEY_ID,
