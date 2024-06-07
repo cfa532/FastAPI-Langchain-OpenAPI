@@ -8,28 +8,25 @@ from typing import List
 
 key_id = "2PMR9NKLU7"
 issuer_id = "b806e892-de29-49c9-b54e-8d79584f6c68"
-# private_key = open('./SubscriptionKey_2PMR9NKLU7.p8').read()
+private_key = open('./SubscriptionKey_2PMR9NKLU7.p8', mode="rb").read()
 bundle_id = "secretari.leither.uk"               # in app settings
 environment = Environment.SANDBOX
 app_apple_id = "6499114177" # app Apple ID must be provided for the Production environment
 
 def load_root_certificates(directory) -> List[bytes]:
-    # Create a list to store the contents of the files
     file_contents = []
 
     # Use glob to find all files with the .cer extension in the specified directory
     cer_files = glob.glob(os.path.join(directory, '*.cer'))
-    print(cer_files)
-    # Iterate over the list of .cer files
     for file_path in cer_files:
-        # Open and read the contents of each file
         with open(file_path, 'rb') as file:
             file_contents.append(file.read())
-
     return file_contents
 
+# load root certificates gloablly
+root_certificates = load_root_certificates("./CA")
+
 async def decode_notification(signedPayload):
-    root_certificates = load_root_certificates("./CA")
     enable_online_checks = True
     signed_data_verifier = SignedDataVerifier(root_certificates, enable_online_checks, environment, bundle_id, app_apple_id)
 
@@ -40,12 +37,7 @@ async def decode_notification(signedPayload):
         print(e)
 
 def request_test_notification():
-    with open("./SubscriptionKey_2PMR9NKLU7.p8", 'rb') as f:        # read to bytes-like object
-        private_key = f.read()
-
-    # print(private_key)
     client = AppStoreServerAPIClient(private_key, key_id, issuer_id, bundle_id, environment)
-
     try:    
         response = client.request_test_notification()
         print(response)
