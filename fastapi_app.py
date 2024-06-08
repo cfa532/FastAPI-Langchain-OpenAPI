@@ -178,11 +178,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
+            print("wrong username:", username)
             raise WebSocketDisconnect
         token_data = TokenData(username=username)
         user = lapi.get_user(username=token_data.username)
         print(user)
         if not user:
+            print("unknown username", username)
             raise WebSocketDisconnect
         while True:
             message = await websocket.receive_text()
@@ -241,19 +243,21 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     "cost": cb.total_cost}))
                 lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)
 
-    except WebSocketDisconnect:
+    except WebSocketDisconnect as e:
+        print(e)
+        sys.stdout.flush()
         connectionManager.disconnect(websocket)
-    except JWTError:
-        print("JWTError")
+    except JWTError as e:
+        print("JWTError", e)
         sys.stdout.flush()
         connectionManager.disconnect(websocket)
     except HTTPException as e:
         print("HTTPException", e)
         sys.stdout.flush()
         connectionManager.disconnect(websocket)
-    finally:
-        if websocket.client_state == WebSocketState.CONNECTED:
-            await websocket.close()
+    # finally:
+        # if websocket.client_state == WebSocketState.CONNECTED:
+            # await websocket.close()
 # if __name__ == "__main__":
 #     import uvicorn
 #     uvicorn.run(app, host="0.0.0.0", port=8506)
