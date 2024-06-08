@@ -155,7 +155,7 @@ class LeitherAPI:
             return False
         # redeem the coupon
         mmsid = self.client.MMOpen(self.sid, user_in.mid, "cur")
-        user_in.dollar_balance[coupon_in_db["model"]] += coupon_in_db.amount
+        user_in.dollar_balance += coupon_in_db.amount
         self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
         self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
 
@@ -171,8 +171,8 @@ class LeitherAPI:
     def bookkeeping(self, llm, total_cost: float, token_cost: int, user_in_db: UserInDB):
         # update monthly expense. Times the cost efficiency to include profit.
         user_in_db.dollar_usage += total_cost * self.cost_efficiency    # total usage in dollar amount
-        user_in_db.dollar_balance[llm] -= total_cost * self.cost_efficiency
-        user_in_db.token_count[llm] += int(token_cost * self.cost_efficiency)
+        user_in_db.dollar_balance -= total_cost * self.cost_efficiency
+        user_in_db.token_count += int(token_cost * self.cost_efficiency)
 
         last_month = datetime.fromtimestamp(user_in_db.timestamp).month
         current_month = datetime.now().month

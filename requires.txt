@@ -10,4 +10,5 @@ pytesseract==0.3.10
 langchain-community
 python-socketio
 websockets
-app-store-server-api
+fastapi
+ app-store-server-library

@@ -15,7 +15,6 @@ app_apple_id = "6499114177" # app Apple ID must be provided for the Production e
 
 def load_root_certificates(directory) -> List[bytes]:
     file_contents = []
-
     # Use glob to find all files with the .cer extension in the specified directory
     cer_files = glob.glob(os.path.join(directory, '*.cer'))
     for file_path in cer_files:
@@ -29,10 +28,12 @@ root_certificates = load_root_certificates("./CA")
 async def decode_notification(signedPayload):
     enable_online_checks = True
     signed_data_verifier = SignedDataVerifier(root_certificates, enable_online_checks, environment, bundle_id, app_apple_id)
-
     try:
-        payload = signed_data_verifier.verify_and_decode_notification(signedPayload)
-        print(payload)
+        data = signed_data_verifier.verify_and_decode_notification(signedPayload)
+        if data.get("notificationType") == "INITIAL_BUY":
+            transaction = signed_data_verifier.verify_and_decode_signed_transaction(data.get("signedTransactionInfo"))
+            print(transaction)
+            # record the income
     except VerificationException as e:
         print(e)
 
@@ -40,9 +41,9 @@ def request_test_notification():
     client = AppStoreServerAPIClient(private_key, key_id, issuer_id, bundle_id, environment)
     try:    
         response = client.request_test_notification()
-        print(response)
+        print(response.testNotificationToken)
     except APIException as e:
         print(e)
 
 # load_root_certificates("./CA")
-request_test_notification()
+# request_test_notification()

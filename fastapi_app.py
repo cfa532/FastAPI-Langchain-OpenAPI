@@ -231,6 +231,7 @@ async def get_productIDs():
 async def apple_notifications(request: Request):
     body = await request.json()
     await decode_notification(body["signedPayload"])
+    return {"status": "ok"}
 
 @app.get(BASE_ROUTE+"/")
 async def get():
