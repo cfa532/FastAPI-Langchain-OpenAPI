@@ -229,9 +229,12 @@ async def get_productIDs():
 
 @app.post(BASE_ROUTE+"/app_server_notifications")
 async def apple_notifications(request: Request):
-    body = await request.json()
-    await decode_notification(body["signedPayload"])
-    return {"status": "ok"}
+    try:
+        body = await request.json()
+        await decode_notification(body["signedPayload"])
+        return {"status": "ok"}
+    except:
+        raise HTTPException(status_code=400, detail="Invalid notification data")
 
 @app.get(BASE_ROUTE+"/")
 async def get():

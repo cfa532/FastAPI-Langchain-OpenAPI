@@ -34,8 +34,12 @@ async def decode_notification(signedPayload):
             transaction = signed_data_verifier.verify_and_decode_signed_transaction(data.get("signedTransactionInfo"))
             print(transaction)
             # record the income
+        if data.get("notificationType") == "DID_RENEW":
+            transaction = signed_data_verifier.verify_and_decode_signed_transaction(data.get("signedTransactionInfo"))
+            print(transaction)
+
     except VerificationException as e:
-        print(e)
+        raise e
 
 def request_test_notification():
     client = AppStoreServerAPIClient(private_key, key_id, issuer_id, bundle_id, environment)
