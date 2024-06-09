@@ -87,7 +87,7 @@ class LeitherAPI:
         else:
             user_in_db.token_count[llm] = total_tokens
 
-        mmsid_cur = self.client.MMOpen(self.sid, self.mid, "cur")
+        mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
         self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user_in_db.username, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
 
