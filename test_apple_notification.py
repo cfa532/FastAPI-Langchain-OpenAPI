@@ -12,6 +12,7 @@ private_key = open('./SubscriptionKey_2PMR9NKLU7.p8', mode="rb").read()
 bundle_id = "secretari.leither.uk"               # in app settings
 environment = Environment.SANDBOX
 app_apple_id = "6499114177" # app Apple ID must be provided for the Production environment
+client = AppStoreServerAPIClient(private_key, key_id, issuer_id, bundle_id, environment)
 
 def load_root_certificates(directory) -> List[bytes]:
     file_contents = []
@@ -29,16 +30,17 @@ async def decode_notification(signedPayload):
     enable_online_checks = True
     signed_data_verifier = SignedDataVerifier(root_certificates, enable_online_checks, environment, bundle_id, app_apple_id)
     try:
-        data = signed_data_verifier.verify_and_decode_notification(signedPayload)
-        if data.get("notificationType") == "INITIAL_BUY":
-            transaction = signed_data_verifier.verify_and_decode_signed_transaction(data.get("signedTransactionInfo"))
-            print(transaction)
+        payLoad = signed_data_verifier.verify_and_decode_notification(signedPayload)
+        if payLoad.data.signedTransactionInfo:
+            transaction = signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedTransactionInfo)
+            print("Transaction", transaction)
             # record the income
-        if data.get("notificationType") == "DID_RENEW":
-            transaction = signed_data_verifier.verify_and_decode_signed_transaction(data.get("signedTransactionInfo"))
-            print(transaction)
+        if payLoad.data.signedRenewalInfo:
+            renewal = signed_data_verifier.verify_and_decode_renewal_info(payLoad.data.signedRenewalInfo)
+            print("Renew", renewal)
 
     except VerificationException as e:
+        print("Verifcation except", e)
         raise e
 
 def request_test_notification():
