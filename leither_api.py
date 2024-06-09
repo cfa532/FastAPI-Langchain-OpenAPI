@@ -8,6 +8,7 @@ USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
 MIMEI_EXT = "mimei file"
 MIMEI_COUPON_KEY="SECRETARI_USER_COUPON_KEY"
 LLM_MODEL = "gpt-4o"
+PRODUCTS = {"890842":8.99,"Yearly.bunny0":89.99,"monthly.bunny0":8.99}
 
 class LeitherAPI:
     def __init__(self):
@@ -21,17 +22,21 @@ class LeitherAPI:
         self.sid_time = time.time()
 
         # user .env to update important parameters. To update app settings without reboot.
-        env = dotenv_values(".env")
-        self.init_balance = float(env["SIGNUP_BONUS"])
-        self.cost_efficiency = float(env["COST_EFFICIENCY"])
-
-        # export it to fastapi.py as defualt LLM model
-        LLM_MODEL = env["CURRENT_LLM_MODEL"] 
+        self.load_env()
 
         print("sid  ", self.sid)
         print("uid  ", self.uid)
         print("mid  ", self.mid)
 
+    def load_env(self):
+        env = dotenv_values(".env")
+        self.init_balance = float(env["SIGNUP_BONUS"])
+        self.cost_efficiency = float(env["COST_EFFICIENCY"])
+
+        # export as defualt parameters. Values updated hourly.
+        LLM_MODEL = env["CURRENT_LLM_MODEL"]
+        PRODUCTS = json.loads(env["SECRETARI_PRODUCT_ID_IOS"])["ver0"]["productIDs"]     #{"890842":8.99,"Yearly.bunny0":89.99,"monthly.bunny0":8.99}
+        
     def get_sid(self):
         if time.time() - self.sid_time > 3600:
             self.api = self.client.Login(self.ppt)
@@ -39,10 +44,8 @@ class LeitherAPI:
             self.sid_time = time.time()
 
             # reload some parameters. Every hour with the sid update
-            env = dotenv_values(".env")
-            self.init_balance = float(env["SIGNUP_BONUS"])
-            self.cost_efficiency = float(env["COST_EFFICIENCY"])
-            LLM_MODEL = env["CURRENT_LLM_MODEL"] 
+            self.load_env()
+
         return self.sid
 
     def create_user_mm(self, username) -> str:
@@ -61,9 +64,18 @@ class LeitherAPI:
         user.token_count = 0
         user.monthly_usage = {datetime.now().month: 0}
         user.dollar_usage = 0
-        self.client.MFSetObject(mmsid, json.dumps(user.model_dump()))
+        user.creation_date = time.time()    # required by Apple
+        user.timestamp = user.creation_date
+
+        user_str = mmsid, json.dumps(user.model_dump())
+        self.client.MFSetObject(user_str)
         self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
         self.client.MMAddRef(self.sid, self.mid, user.mid)
+
+        # add new user to index database in Main Mimei
+        mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.mid, user_str)
+        self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         return UserOut(**user.model_dump())
 
     # The function is called when user create a real account by providing personal information. The username shall be different from identifier, used as username in temproral account.
@@ -188,13 +200,14 @@ class LeitherAPI:
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
 
     # keep a record of all the purchase and subscriptions a customer made.
-    def upload_purchase_history(self, current_user: UserInDB, purchase) -> UserOut:
-        # purchase = {"productId": "890842", "amount": 8990, "timestamp": 1672588674}
+    def upload_recharge(self, current_user: UserInDB, purchase) -> UserOut:
+        # ["originalTransactionID": 2000000622918330, "product_id": "890842", "currency": "TWD", "transactionDate": 1717914627.067, "amount": 290]
         purchase["balance"] = current_user.dollar_balance       # remember the dollar balance at the time of recharge,
                                                                 # in case of a refund, need to know how much to refund.
-        # Attention: The amount is convert to integer. $8.99 is 8990
-        current_user.dollar_balance += float(purchase["amount"])
-        current_user.accured_total += float(purchase["amount"])        # revenue from the user.
+        # Apple uses localized currency, so need to convert to dollar.
+        dollar_amount = float(PRODUCTS[purchase["product_id"]])
+        current_user.dollar_balance += dollar_amount
+        current_user.accured_total += dollar_amount        # revenue from the user.
 
         if current_user.purchase_history is None:
             current_user.purchase_history = [purchase]

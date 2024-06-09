@@ -31,13 +31,26 @@ async def decode_notification(signedPayload):
     signed_data_verifier = SignedDataVerifier(root_certificates, enable_online_checks, environment, bundle_id, app_apple_id)
     try:
         payLoad = signed_data_verifier.verify_and_decode_notification(signedPayload)
-        if payLoad.data.signedTransactionInfo:
-            transaction = signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedTransactionInfo)
-            print("Transaction", transaction)
-            # record the income
-        if payLoad.data.signedRenewalInfo:
-            renewal = signed_data_verifier.verify_and_decode_renewal_info(payLoad.data.signedRenewalInfo)
-            print("Renew", renewal)
+        if payLoad.notificationType == "CONSUMPTION_REQUEST":
+            print("Refund requested. Send comsumption report")
+            return
+        else:
+            pass
+        
+        if payLoad.data:
+            # ResponseBodyV2DecodedPayload
+            print("notification type", payLoad.notificationType)
+            if payLoad.data.signedTransactionInfo:
+                transaction = signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedTransactionInfo)
+                print("Transaction", transaction)
+                # record the income
+            if payLoad.data.signedRenewalInfo:
+                renewal = signed_data_verifier.verify_and_decode_renewal_info(payLoad.data.signedRenewalInfo)
+                print("Renew", renewal)
+        elif payLoad.summary:
+            pass
+        else:       # externalPurchaseToken
+            pass
 
     except VerificationException as e:
         print("Verifcation except", e)

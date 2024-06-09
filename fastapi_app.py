@@ -16,7 +16,7 @@ from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI, LLM_MODEL
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
-from test_apple_notification import decode_notification
+from apple_notification import decode_notification
 
 # to get a string like this run: openssl rand -hex 32
 VERIFICATION_URL_SANDBOX="https://sandbox.itunes.apple.com/verifyReceipt"
@@ -147,7 +147,7 @@ async def register_temp_user(user: UserIn):
 @app.post(BASE_ROUTE+"/users/recharge")
 async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
     print("purchase:", purchase)
-    return lapi.upload_purchase_history(current_user, purchase)
+    return lapi.upload_recharge(current_user, purchase)
 
     # there are two piece of data in dict. Purchase receipt and other data. Confrim with Apple first.
     # payload = {

@@ -57,12 +57,10 @@ class UserIn(User):
 
 class UserInDB(UserOut):
     hashed_password: str
+    creation_date: float = time.time()              # when user is created
     timestamp: float = time.time()                  # last time service is used
     dollar_usage: float = 0.0                       # accumulated dollar usage. Ignorant of LLM model
     accured_total: float = 0.0                      # accumulated revenue, consumables and subscriptions.
-    subscription_plan: Union[str, None] = None      # monthly, yearly
-    subscription_start: Union[float, None] = None     # start time
-    subscription_end: Union[float, None] = None       # end time
     purchase_history: Union[list, None] = None      # purchase history. {productID, purchase date, amount, balance} 
                                                     # or {start date, end date, monthly/yearly, price}
 
