@@ -1,7 +1,7 @@
-import json, sys, time, httpx
+import json, sys, time, random
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
+from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request, BackgroundTasks
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from starlette.websockets import WebSocketState
@@ -12,19 +12,19 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 
+from apscheduler.schedulers.background import BackgroundScheduler
 from openaiCBHandler import get_cost_tracker_callback
-from leither_api import LeitherAPI, LLM_MODEL
+from leither_api import LeitherAPI
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
 from apple_notification import decode_notification
 
 # to get a string like this run: openssl rand -hex 32
-VERIFICATION_URL_SANDBOX="https://sandbox.itunes.apple.com/verifyReceipt"
-VERIFICATION_URL_PRODUCTION="https://buy.itunes.apple.com/verifyReceipt"
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE = 480   # expires
 BASE_ROUTE = "/secretari"
+OPENAI_KEYS=[]
 MAX_TOKEN = {
     "gpt-4o": 8192,
     "gpt-4": 4096,
@@ -33,6 +33,9 @@ MAX_TOKEN = {
 }
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
+env = dotenv_values(".env")
+LLM_MODEL = env["CURRENT_LLM_MODEL"]
+OPENAI_KEYS = env["OPENAI_KEYS"]
 
 class Token(BaseModel):
     access_token: str
@@ -43,6 +46,18 @@ class TokenData(BaseModel):
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 app = FastAPI()
+scheduler = BackgroundScheduler()
+
+def periodic_task():
+    env = dotenv_values(".env")
+    global LLM_MODEL, OPENAI_KEYS
+    # export as defualt parameters. Values updated hourly.
+    LLM_MODEL = env["CURRENT_LLM_MODEL"]
+    OPENAI_KEYS = env["OPENAI_KEYS"]
+
+
+scheduler.add_job(periodic_task, 'interval', seconds=3600)
+scheduler.start()
 
 # Configure CORS
 app.add_middleware(
@@ -145,9 +160,12 @@ async def register_temp_user(user: UserIn):
 
 # upload purchase to server
 @app.post(BASE_ROUTE+"/users/recharge")
-async def upload_purchase_history(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
+async def upload_purchase(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
     print("purchase:", purchase)
-    return lapi.upload_recharge(current_user, purchase)
+    try:
+        return lapi.upload_recharge(current_user, purchase)
+    except:
+        raise HTTPException(status_code=400, detail="Failed to upload purchase history.")
 
     # there are two piece of data in dict. Purchase receipt and other data. Confrim with Apple first.
     # payload = {
@@ -263,34 +281,21 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             # create the right Chat LLM
             params = event["parameters"]
             if params["llm"] == "openai":
+                # randomly select OpenAI key from a list
+                print(OPENAI_KEYS)
                 CHAT_LLM = ChatOpenAI(
-                    temperature=float(params["temperature"]),
-                    model=params["model"],
-                    streaming=True,
-                    verbose=True
-                    )     # ChatOpenAI cannot have max_token=-1
+                    api_key = random.choice(OPENAI_KEYS),   # pick a random OpenAI key from a list
+                    temperature = float(params["temperature"]),
+                    model = params["model"],
+                    streaming = True,
+                    verbose = True
+                )     # ChatOpenAI cannot have max_token=-1
             elif params["llm"] == "qianfan":
                 pass
 
             # check user account balance. If current model has not balance, use the cheaper default one.
             user = lapi.get_user(event["user"])
-            
             llm_model = LLM_MODEL
-            current_month = str(datetime.now().month)
-            if (not user.subscription and user.dollar_balance <0.5) \
-                or (user.subscription and user.monthly_usage[current_month]>20 ):
-                # check default model balance. Also set a limit on how much can be spent.
-
-                llm_model = "gpt-3.5-turbo"
-                if not user.subscription and user.dollar_balance <=0:
-                    await websocket.send_text(json.dumps({
-                        "type": "result",
-                        "answer": "Insufficient balance",
-                        "tokens": "0",
-                        "cost": "0.00",
-                        "user": UserOut(**user.model_dump())}))
-                    continue
-
             lapi.bookkeeping(llm_model, 0.015, 123, user)
             await websocket.send_text(json.dumps({
                 "type": "result",

@@ -25,17 +25,42 @@ def load_root_certificates(directory) -> List[bytes]:
 
 # load root certificates gloablly
 root_certificates = load_root_certificates("./CA")
+enable_online_checks = True
+signed_data_verifier = SignedDataVerifier(root_certificates, enable_online_checks, environment, bundle_id, app_apple_id)
 
+def decode_transaction_info(payLoad):
+    # ResponseBodyV2DecodedPayload
+    if payLoad.data and payLoad.data.signedTransactionInfo:
+        return signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedTransactionInfo)
+
+def decode_renewal_info(payLoad):
+    # ResponseBodyV2DecodedPayload
+    if payLoad.data and payLoad.data.signedRenewalInfo:
+        return signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedRenewalInfo)
+    
 async def decode_notification(signedPayload):
-    enable_online_checks = True
-    signed_data_verifier = SignedDataVerifier(root_certificates, enable_online_checks, environment, bundle_id, app_apple_id)
     try:
         payLoad = signed_data_verifier.verify_and_decode_notification(signedPayload)
         if payLoad.notificationType == "CONSUMPTION_REQUEST":
             print("Refund requested. Send comsumption report")
+            transaction = decode_transaction_info(payLoad)
+            print("Transaction", transaction)
+            return
+        elif payLoad.notificationType == "REFUND":
+            print("Refund happend. Process it if consumables")
+            transaction = decode_transaction_info(payLoad)
+            print("Transaction", transaction)
+            # transaction_id = transaction.originalTransactionId
+            # product_id = transaction.productId
+
+            # https://developer.apple.com/documentation/appstoreservernotifications/notificationtype
+            # If it is consumable, process the message. Ignore other types.
+            # Search all user records to find that transaction within the user's data. There is a "balance".
+            # It is the amount before the recharge of this refund. Restore the balance. Done!
+            # To do ....
             return
         else:
-            pass
+            return
         
         if payLoad.data:
             # ResponseBodyV2DecodedPayload

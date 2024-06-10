@@ -33,8 +33,9 @@ class UserGroup(BaseModel):
     users: set[str]        # list of usernames
 
 class User(BaseModel):
+    id: Union[str, None] = None             # use device identifier as appAccountToken.
     username: str
-    subscription: bool = False
+    # subscription: bool = False            # Get subscripion status on device. It is managed by Apple
     mid: Union[str, None] = None            # the user's mid, which is a mimei file
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None

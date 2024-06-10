@@ -7,8 +7,7 @@ APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
 USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
 MIMEI_EXT = "mimei file"
 MIMEI_COUPON_KEY="SECRETARI_USER_COUPON_KEY"
-LLM_MODEL = "gpt-4o"
-PRODUCTS = {"890842":8.99,"Yearly.bunny0":89.99,"monthly.bunny0":8.99}
+PRODUCTS={}     # in-app purchase products defined in Appconnect
 
 class LeitherAPI:
     def __init__(self):
@@ -29,12 +28,10 @@ class LeitherAPI:
         print("mid  ", self.mid)
 
     def load_env(self):
+        global PRODUCTS
         env = dotenv_values(".env")
         self.init_balance = float(env["SIGNUP_BONUS"])
         self.cost_efficiency = float(env["COST_EFFICIENCY"])
-
-        # export as defualt parameters. Values updated hourly.
-        LLM_MODEL = env["CURRENT_LLM_MODEL"]
         PRODUCTS = json.loads(env["SECRETARI_PRODUCT_ID_IOS"])["ver0"]["productIDs"]     #{"890842":8.99,"Yearly.bunny0":89.99,"monthly.bunny0":8.99}
         
     def get_sid(self):
@@ -45,10 +42,10 @@ class LeitherAPI:
 
             # reload some parameters. Every hour with the sid update
             self.load_env()
-
         return self.sid
 
     def create_user_mm(self, username) -> str:
+        # given username, get its corresponding mimei
         return self.client.MMCreate(self.get_sid(), APPID_MIMEI_KEY, MIMEI_EXT, username, 1, 0x07276705)
     
     def register_temp_user(self, user: UserInDB) -> UserOut:
@@ -60,6 +57,7 @@ class LeitherAPI:
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
+        user.id = user.username         # user's device identifier is used as username for now.
         user.dollar_balance = self.init_balance
         user.token_count = 0
         user.monthly_usage = {datetime.now().month: 0}
@@ -67,8 +65,8 @@ class LeitherAPI:
         user.creation_date = time.time()    # required by Apple
         user.timestamp = user.creation_date
 
-        user_str = mmsid, json.dumps(user.model_dump())
-        self.client.MFSetObject(user_str)
+        user_str = json.dumps(user.model_dump())
+        self.client.MFSetObject(mmsid, user_str)
         self.client.MMBackup(self.sid, user.mid, "", "delRef=true")
         self.client.MMAddRef(self.sid, self.mid, user.mid)
 
@@ -78,53 +76,44 @@ class LeitherAPI:
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         return UserOut(**user.model_dump())
 
-    # The function is called when user create a real account by providing personal information. The username shall be different from identifier, used as username in temproral account.
-    # A temporary user account has been created when user installed Secretari app. The username is set with device identifier, for a better user experience. This temp account will be deleted after registration. 
-    # Information such as token usage and cost will be stored in the database.
+    # The function is called when user create a real account by providing personal information.
+    # The username shall be different from identifier, used as username in temproral account.
+    # A temporary user account has been created when user installed Secretari app. 
+    # The username is set with device identifier, for a better user experience.
+    # This temp account will be deleted after registration. 
     def register_in_db(self, user_in: UserInDB) -> UserOut:
         mid = self.create_user_mm(user_in.username)
         mmsid = self.client.MMOpen(self.get_sid(), mid, "cur")
         user_in_db = self.client.MFGetObject(mmsid)
+
         if user_in_db:
             # the created mid is not empty, the username is taken.
             print("username is taken", user_in_db)
             return None
-        
-        if not user_in.mid or not self.client.MFGetObject(self.client.MMOpen(self.sid, user_in.mid, "cur")):
-            # a new user who has not even tried before registrating. A good man.
-            # or the old mimei is deleted for testing purpose
-            user_in.mid = mid
-            user_in.dollar_balance = self.init_balance
-            user_in.token_count = 0
-            user_in.monthly_usage = {datetime.now().month: 0}
-            user_in.dollar_usage = 0
-
-            self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
-            self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
-            self.client.MMAddRef(self.sid, self.mid, user_in.mid)
-            return UserOut(**user_in.model_dump())
         else:
-            # if the user already has a mid, open the old mid and copy it content to the new mimei.
+            # the user already has a mid, open the old mid and copy its content to the new mimei.
             mmsid_in_db = self.client.MMOpen(self.sid, user_in.mid, "last")
             user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
-            print("Before copy. user in db:", user_in_db)
-            # Update existing mimei data with incoming data
+                        # Update existing mimei data with incoming data
             user_in_db.username = user_in.username
             user_in_db.hashed_password = user_in.hashed_password
             user_in_db.family_name = user_in.family_name
             user_in_db.given_name = user_in.given_name
             user_in_db.email = user_in.email
-            user_in_db.mid = mid    # get a new Mimei id that is genereated with real username
-            user_in_db.timestamp = time.time()
-    
+            user_in_db.mid = mid        # new Mimei id that is genereated with real username
             print("After copy. user in db:", user_in_db)
-            # return UserOut(**user_in_db.model_dump())
 
-            # Open a new mimei for the new user.
-            self.client.MFSetObject(mmsid, json.dumps(user_in_db.model_dump()))
-            self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
-            self.client.MMAddRef(self.sid, self.mid, user_in_db.mid)
+            user_str = json.dumps(user_in_db.model_dump())
+            self.client.MFSetObject(mmsid, user_str)
+            self.client.MMBackup(self.sid, mid, "", "delRef=true")
+            self.client.MMAddRef(self.sid, self.mid, mid)
             self.client.MMDelRef(self.sid, self.mid, user_in.mid)      # get rid of old mm
+
+            # update index Mimei db
+            mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
+            self.client.Hset(mmsid, USER_ACCOUNT_KEY, mid, user_str)
+            self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
+            self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
             return UserOut(**user_in_db.model_dump())
 
     # After registration, username will be different from its identifier.
@@ -222,10 +211,6 @@ class LeitherAPI:
         return current_user
 
     def subscribe_user(self, current_user, subscription) -> UserOut:
-        current_user.subscription = True
-        current_user.subscription_plan = subscription["plan"]
-        current_user.subscription_start = subscription["start_date"]
-
         if current_user.purchase_history is None:
             current_user.purchase_history = [subscription]
         else:
