@@ -74,6 +74,7 @@ class LeitherAPI:
         mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
         self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.mid, user_str)
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+        self.client.MiMeiPublish(self.sid, "", self.mid)
         return UserOut(**user.model_dump())
 
     # The function is called when user create a real account by providing personal information.
@@ -114,6 +115,7 @@ class LeitherAPI:
             self.client.Hset(mmsid, USER_ACCOUNT_KEY, mid, user_str)
             self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+            self.client.MiMeiPublish(self.sid, "", self.mid)
             return UserOut(**user_in_db.model_dump())
         
     def update_user(self, user_in: UserInDB) -> UserOut:
@@ -159,6 +161,7 @@ class LeitherAPI:
         coupon_in_db.expiration_date = time.time()
         self.client.Hset(mmsid, MIMEI_COUPON_KEY, coupon, (coupon_in_db))
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+        self.client.MiMeiPublish(self.sid, "", self.mid)
         return True
 
     def delete_user(self, username: str):
