@@ -11,5 +11,7 @@ langchain-community
 python-socketio
 websockets
 fastapi
- app-store-server-library
- apscheduler
+app-store-server-library
+apscheduler
+python-jose[cryptography]
+hprose
