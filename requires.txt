@@ -8,5 +8,7 @@ PyPDF2==3.0.1
 pdf2image==1.16.3
 pytesseract==0.3.10
 langchain-community
-python-socketio
 websockets
+hprose
+python-jose
+fastapi
