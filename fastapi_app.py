@@ -139,6 +139,19 @@ async def register_user(user: UserIn) -> UserOut:
     print("User out", user)
     return user
 
+@app.post(BASE_ROUTE+"/users/update")
+async def update_user(user: UserIn, user_in_db: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
+    user_in_db.family_name = user.family_name
+    user_in_db.given_name = user.given_name
+    user_in_db.email = user.email
+    # if User password is null, do not update it.
+    if user.password:
+        user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
+
+    user = lapi.update_user(user_in_db)
+    print("User out", user)
+    return user
+
 @app.post(BASE_ROUTE+"/users/temp")
 async def register_temp_user(user: UserIn):
     # A temp user has assigned username, usuall the device identifier. It does not login, so no taken is needed.

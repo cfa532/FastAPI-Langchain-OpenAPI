@@ -115,6 +115,12 @@ class LeitherAPI:
             self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
             return UserOut(**user_in_db.model_dump())
+        
+    def update_user(self, user_in: UserInDB) -> UserOut:
+        mmsid = self.client.MMOpen(self.get_sid(), user_in.mid, "cur")
+        self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
+        self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
+        return UserOut(**user_in.model_dump())
 
     # After registration, username will be different from its identifier.
     def get_user(self, username) -> UserInDB:
@@ -136,17 +142,6 @@ class LeitherAPI:
             # self.client.MMBackup(self.sid, user_mid, "", "delRef=true")
             # self.client.MMAddRef(self.sid, self.mid, user_mid)
             # return user
-
-    def update_user(self, user_in: UserInDB):
-        mmsid = self.client.MMOpen(self.get_sid(), user_in.mid, "cur")
-        user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
-        if user_in.hashed_password == "":
-            del user_in.hashed_password
-
-        for attr in vars(user_in):
-            setattr(user_in_db, attr, getattr(user_in, attr))
-        self.client.MFSetObject(mmsid, json.dumps(user_in_db.model_dump()))
-        self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
 
     def cash_coupon(self, user_in: UserInDB, coupon: str):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "cur")
