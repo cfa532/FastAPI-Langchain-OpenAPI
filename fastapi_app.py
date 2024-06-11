@@ -360,7 +360,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
     except JWTError:
         print("JWTError")
         sys.stdout.flush()
-        websocket.send_text(json.dumps({"type": "error", "error": "Invalid token"}))
+        await websocket.send_text(json.dumps({"type": "error", "error": "Invalid token"}))
     except HTTPException as e:
         print("HTTPException", e)
         sys.stdout.flush()
