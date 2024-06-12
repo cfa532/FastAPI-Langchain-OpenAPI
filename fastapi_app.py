@@ -34,7 +34,7 @@ connectionManager = ConnectionManager()
 lapi = LeitherAPI()
 env = dotenv_values(".env")
 LLM_MODEL = env["CURRENT_LLM_MODEL"]
-OPENAI_KEYS = env["OPENAI_KEYS"]
+OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
 print("api keys:", OPENAI_KEYS)
 
 class Token(BaseModel):
@@ -53,7 +53,7 @@ def periodic_task():
     global LLM_MODEL, OPENAI_KEYS
     # export as defualt parameters. Values updated hourly.
     LLM_MODEL = env["CURRENT_LLM_MODEL"]
-    OPENAI_KEYS = env["OPENAI_KEYS"]
+    OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
     print("api keys:", OPENAI_KEYS)
 
 scheduler.add_job(periodic_task, 'interval', seconds=3600)
@@ -178,36 +178,7 @@ async def upload_purchase(purchase: dict, current_user: Annotated[UserInDB, Depe
     try:
         return lapi.upload_recharge(current_user, purchase)
     except:
-        raise HTTPException(status_code=400, detail="Failed to upload purchase history.")
-
-    # there are two piece of data in dict. Purchase receipt and other data. Confrim with Apple first.
-    # payload = {
-    #     'receipt-data': purchase["receipt"],
-    #     # 'password': '04df7f4eb0f04034a25081673d464e6d',  # Only needed for auto-renewable subscriptions
-    # }
-    # headers = {'Content-Type': 'application/json'}
-    # async with httpx.AsyncClient() as client:
-    #     response = await client.post(VERIFICATION_URL_SANDBOX, json=payload, headers=headers)
-    # if response.status_code == 200:
-    #     result = response.json()
-    #     print(result)
-    #     if result.get("status") != 0:
-    #         raise HTTPException(status_code=400, detail="Failed to verify receipt with Apple")
-    #     purchase["validation"] = result
-    #     return lapi.upload_purchase_history(current_user, purchase)
-    # else:
-    #     if response.status_code == 21007:
-    #             async with httpx.AsyncClient() as client:
-    #                 response = await client.post(VERIFICATION_URL_PRODUCTION, json=payload, headers=headers)
-    #             if response.status_code == 200:
-    #                 result = response.json()
-    #                 print(result)
-    #                 if result.get("status") != 0:
-    #                     raise HTTPException(status_code=400, detail="Failed to verify receipt with Apple")
-    #                 purchase["validation"] = result
-    #                 return lapi.upload_purchase_history(current_user, purchase)
-    #     else:
-    #         raise HTTPException(status_code=response.status_code, detail="Failed to verify receipt with Apple")
+        raise HTTPException(status_code=400, detail="Failed to upload recharge data.")
 
 @app.post(BASE_ROUTE + "/users/subscribe")
 async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
@@ -306,36 +277,18 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             elif params["llm"] == "qianfan":
                 pass
 
-            # check user account balance. If current model has not balance, use the cheaper default one.
-            user = lapi.get_user(event["user"])
             llm_model = LLM_MODEL
-            lapi.bookkeeping(llm_model, 0.015, 123, user)
-            await websocket.send_text(json.dumps({
-                "type": "result",
-                "answer": event["input"]["rawtext"], 
-                "tokens": 111,
-                "cost": 0.015,
-                "user": UserOut(**user.model_dump()).model_dump()}))
+            # lapi.bookkeeping(llm_model, 0.015, 123, user)
+            # await websocket.send_text(json.dumps({
+            #     "type": "result",
+            #     "answer": event["input"]["rawtext"], 
+            #     "tokens": 111,
+            #     "cost": 0.015,
+            #     "user": UserOut(**user.model_dump()).model_dump()}))
 
-            continue
-            # CHAT_LLM.callbacks=[MyStreamingHandler()]
-            # query = event["input"]["query"]
-            # memory = ConversationBufferMemory(return_messages=False)
+            # continue
 
-            query = "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.\nCurrent conversation:\n"
-            if event["input"].get("history"):
-                # user server history if history key is not present in user request
-                # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
-                hlen = 0
-                for c in event["input"]["history"]:
-                    hlen += len(c["Q"]) + len(c["A"])
-                    if hlen > MAX_TOKEN[llm_model]/2:
-                        break
-                    else:
-                        query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
-            query += "Human: "+event["input"]["rawtext"]+"\nAI:"
-            print(query)
-            start_time = time.time()
+            query = event["input"]["prompt"]
             with get_cost_tracker_callback(llm_model) as cb:
                 # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                 chain =CHAT_LLM
@@ -345,13 +298,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                     resp += chunk.content
                     await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
                 print('\n', cb)
-                print("time diff=", (time.time() - start_time))
                 sys.stdout.flush()
                 await websocket.send_text(json.dumps({
                     "type": "result",
                     "answer": resp,
-                    "tokens": cb.total_tokens,
-                    "cost": cb.total_cost}))
+                    "tokens": cb.total_tokens,  # sum of prompt tokens and comletion tokens. Prices are different.
+                    "cost": cb.total_cost       # cost in USD
+                    }))
                 
                 lapi.bookkeeping(llm_model, cb.total_cost, cb.total_tokens, user)
 
