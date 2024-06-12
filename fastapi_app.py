@@ -244,7 +244,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect as e:
-        print(e)
+        print("WS except", e)
         sys.stdout.flush()
         connectionManager.disconnect(websocket)
     except JWTError as e:
@@ -254,7 +254,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     except HTTPException as e:
         print("HTTPException", e)
         sys.stdout.flush()
-        connectionManager.disconnect(websocket)
+        # connectionManager.disconnect(websocket)
     # finally:
         # if websocket.client_state == WebSocketState.CONNECTED:
             # await websocket.close()
