@@ -4,11 +4,11 @@ from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
-from starlette.websockets import WebSocketState
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
+from langchain.text_splitter import RecursiveCharacterTextSplitter
 from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 
@@ -260,15 +260,16 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
         while True:
             message = await websocket.receive_text()
             event = json.loads(message)
-            print("Incoming event: ", event)
-            
-            # create the right Chat LLM
+            print("Incoming event: ", event)    # request from client, with parameters
+            query = event["input"]
             params = event["parameters"]
+
+            # create the right Chat LLM
             if params["llm"] == "openai":
                 # randomly select OpenAI key from a list
                 print(OPENAI_KEYS)
                 CHAT_LLM = ChatOpenAI(
-                    api_key = random.choice(OPENAI_KEYS),   # pick a random OpenAI key from a list
+                    api_key = random.choice(OPENAI_KEYS),       # pick a random OpenAI key from a list
                     temperature = float(params["temperature"]),
                     model = params["model"],
                     streaming = True,
@@ -278,35 +279,42 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                 pass
 
             llm_model = LLM_MODEL
-            # lapi.bookkeeping(llm_model, 0.015, 123, user)
+            if not query["subscription"] and query["balance"]<0.1:
+                llm_model = "gpt-3.5-turbo"
+
+            # when dollar balance is lower than $0.1, user gpt-3.5-turbo
+            splitter = RecursiveCharacterTextSplitter(chunk_size=MAX_TOKEN[llm_model]/4*3, chunk_overlap=200)
+            chunks_in = splitter.create_documents([query["rawtext"]])
+
+            # lapi.bookkeeping(query["balance"], 0.015, 123, user)
             # await websocket.send_text(json.dumps({
             #     "type": "result",
             #     "answer": event["input"]["rawtext"], 
-            #     "tokens": 111,
-            #     "cost": 0.015,
-            #     "user": UserOut(**user.model_dump()).model_dump()}))
-
+            #     "tokens": int(111 * lapi.cost_efficiency),
+            #     "cost": 0.015 * lapi.cost_efficiency,
+            #     }))
             # continue
 
-            query = event["input"]["prompt"]
+            chain = CHAT_LLM
+            resp = ""
             with get_cost_tracker_callback(llm_model) as cb:
                 # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                chain =CHAT_LLM
-                resp = ""
-                async for chunk in chain.astream(query):
-                    print(chunk.content, end="|", flush=True)    # chunk size can be big
-                    resp += chunk.content
-                    await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
+                for ci in chunks_in:
+                    async for chunk in chain.astream(query["prompt"] + " "+ ci.page_content):
+                        print(chunk.content, end="|", flush=True)    # chunk size can be big
+                        resp += chunk.content
+                        await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
                 print('\n', cb)
                 sys.stdout.flush()
+
                 await websocket.send_text(json.dumps({
                     "type": "result",
                     "answer": resp,
-                    "tokens": cb.total_tokens,  # sum of prompt tokens and comletion tokens. Prices are different.
-                    "cost": cb.total_cost       # cost in USD
+                    "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and comletion tokens. Prices are different.
+                    "cost": cb.total_cost * lapi.cost_efficiency       # cost in USD
                     }))
                 
-                lapi.bookkeeping(llm_model, cb.total_cost, cb.total_tokens, user)
+                lapi.bookkeeping(query["balance"], cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)

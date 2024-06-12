@@ -167,10 +167,10 @@ class LeitherAPI:
     def delete_user(self, username: str):
         pass
 
-    def bookkeeping(self, dollar_balance: float, token_count: int, total_cost: float, token_cost: int, user_in_db: UserInDB):
+    def bookkeeping(self, dollar_balance: float, total_cost: float, token_cost: int, user_in_db: UserInDB):
         # update monthly expense. Times the cost efficiency to include profit.
         user_in_db.dollar_usage += total_cost * self.cost_efficiency    # total usage in dollar amount. Full history
-        user_in_db.dollar_balance = dollar_balance - total_cost * self.cost_efficiency
+        user_in_db.dollar_balance = dollar_balance - total_cost * self.cost_efficiency  # keep sync with device
         user_in_db.token_count += int(token_cost * self.cost_efficiency)
 
         last_month = datetime.fromtimestamp(user_in_db.timestamp).month
