@@ -1,4 +1,4 @@
-import hprose, json, time
+import hprose, json, time, sys
 from datetime import datetime
 from utilities import UserInDB, UserOut
 from dotenv import load_dotenv, dotenv_values
@@ -130,7 +130,7 @@ class LeitherAPI:
         mmsid = self.client.MMOpen(self.get_sid(), user_mid, "cur")
         user = self.client.MFGetObject(mmsid)
         if user:
-            print("get_user() found: ", user_mid)
+            # print("get_user() found: ", user_mid)
             return UserInDB(**json.loads(user))
         else:
             print("In get_user() user not found", username)
@@ -181,7 +181,8 @@ class LeitherAPI:
             user_in_db.monthly_usage[str(current_month)] += total_cost * self.cost_efficiency     # usage of the month
         user_in_db.timestamp = time.time()
         print("In bookkeeper, user in db:", user_in_db)
-
+        sys.stdout.flush()
+        
         mmsid_cur = self.client.MMOpen(self.get_sid(), user_in_db.mid, "cur")
         self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")

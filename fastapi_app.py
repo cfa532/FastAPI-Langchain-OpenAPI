@@ -1,4 +1,4 @@
-import json, sys, time, random
+import json, sys, time, random, tiktoken
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
@@ -24,18 +24,24 @@ SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE = 480   # expires
 BASE_ROUTE = "/secretari"
+MIN_BALANCE=0.1
 MAX_TOKEN = {
-    "gpt-4o": 8192,
+    "gpt-4o": 256,
     "gpt-4": 4096,
     "gpt-4-turbo": 8192,
     "gpt-3.5-turbo": 4096,
 }
+tiktoken_encoder = tiktoken.get_encoding("gpt-4")
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
 env = dotenv_values(".env")
 LLM_MODEL = env["CURRENT_LLM_MODEL"]
 OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
-print("api keys:", OPENAI_KEYS)
+token_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
+    encoder=tiktoken_encoder,
+    chunk_size=MAX_TOKEN[LLM_MODEL]/4*3,  # Set your desired chunk size in tokens
+    chunk_overlap=50  # Set the overlap between chunks if needed
+)
 
 class Token(BaseModel):
     access_token: str
@@ -54,7 +60,6 @@ def periodic_task():
     # export as defualt parameters. Values updated hourly.
     LLM_MODEL = env["CURRENT_LLM_MODEL"]
     OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
-    print("api keys:", OPENAI_KEYS)
 
 scheduler.add_job(periodic_task, 'interval', seconds=3600)
 scheduler.start()
@@ -253,7 +258,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             raise WebSocketDisconnect
         token_data = TokenData(username=username)
         user = lapi.get_user(username=token_data.username)
-        print(user)
         if not user:
             raise WebSocketDisconnect
         
@@ -263,6 +267,12 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             print("Incoming event: ", event)    # request from client, with parameters
             query = event["input"]
             params = event["parameters"]
+            llm_model = LLM_MODEL
+
+            # when dollar balance is lower than $0.1, user gpt-3.5-turbo
+            if not query["subscription"] and query["balance"]<MIN_BALANCE:
+                llm_model = "gpt-3.5-turbo"
+                token_splitter._chunk_size = MAX_TOKEN["gpt-3.5-turbo"]
 
             # create the right Chat LLM
             if params["llm"] == "openai":
@@ -271,20 +281,12 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                 CHAT_LLM = ChatOpenAI(
                     api_key = random.choice(OPENAI_KEYS),       # pick a random OpenAI key from a list
                     temperature = float(params["temperature"]),
-                    model = params["model"],
+                    model = llm_model,
                     streaming = True,
                     verbose = True
                 )     # ChatOpenAI cannot have max_token=-1
             elif params["llm"] == "qianfan":
                 pass
-
-            llm_model = LLM_MODEL
-            if not query["subscription"] and query["balance"]<0.1:
-                llm_model = "gpt-3.5-turbo"
-
-            # when dollar balance is lower than $0.1, user gpt-3.5-turbo
-            splitter = RecursiveCharacterTextSplitter(chunk_size=MAX_TOKEN[llm_model]/4*3, chunk_overlap=200)
-            chunks_in = splitter.create_documents([query["rawtext"]])
 
             # lapi.bookkeeping(query["balance"], 0.015, 123, user)
             # await websocket.send_text(json.dumps({
@@ -297,24 +299,26 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
 
             chain = CHAT_LLM
             resp = ""
-            with get_cost_tracker_callback(llm_model) as cb:
-                # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                for ci in chunks_in:
-                    async for chunk in chain.astream(query["prompt"] + " "+ ci.page_content):
+            chunks = token_splitter.split_text(query["rawtext"])
+            for index, ci in enumerate(chunks):
+                with get_cost_tracker_callback(llm_model) as cb:
+                    # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
+                    print(ci)
+                    async for chunk in chain.astream(query["prompt"] +"\nIf the text is too short. Add proper punctuations and return it as is.\n\n"+ ci):
                         print(chunk.content, end="|", flush=True)    # chunk size can be big
                         resp += chunk.content
                         await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
-                print('\n', cb)
-                sys.stdout.flush()
+                    print('\n', cb, '\nLLMModel:', llm_model)
+                    sys.stdout.flush()
 
-                await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": resp,
-                    "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and comletion tokens. Prices are different.
-                    "cost": cb.total_cost * lapi.cost_efficiency       # cost in USD
-                    }))
-                
-                lapi.bookkeeping(query["balance"], cb.total_cost, cb.total_tokens, user)
+                    await websocket.send_text(json.dumps({
+                        "type": "result",
+                        "answer": resp,
+                        "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and comletion tokens. Prices are different.
+                        "cost": cb.total_cost * lapi.cost_efficiency,       # cost in USD
+                        "eof": index==chunks.count-1,       # end of content
+                        }))
+                    lapi.bookkeeping(query["balance"], cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
