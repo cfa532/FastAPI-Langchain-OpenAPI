@@ -26,19 +26,18 @@ ACCESS_TOKEN_EXPIRE = 480   # expires
 BASE_ROUTE = "/secretari"
 MIN_BALANCE=0.1
 MAX_TOKEN = {
-    "gpt-4o": 256,
+    "gpt-4o": 8192,
     "gpt-4": 4096,
     "gpt-4-turbo": 8192,
     "gpt-3.5-turbo": 4096,
 }
-tiktoken_encoder = tiktoken.get_encoding("gpt-4")
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
 env = dotenv_values(".env")
 LLM_MODEL = env["CURRENT_LLM_MODEL"]
 OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
 token_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-    encoder=tiktoken_encoder,
+    encoding_name="cl100k_base",
     chunk_size=MAX_TOKEN[LLM_MODEL]/4*3,  # Set your desired chunk size in tokens
     chunk_overlap=50  # Set the overlap between chunks if needed
 )
@@ -308,7 +307,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                         print(chunk.content, end="|", flush=True)    # chunk size can be big
                         resp += chunk.content
                         await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
-                    print('\n', cb, '\nLLMModel:', llm_model)
+                    print('\n', cb, '\nLLMModel:', llm_model, index, len(chunks))
                     sys.stdout.flush()
 
                     await websocket.send_text(json.dumps({
@@ -316,7 +315,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                         "answer": resp,
                         "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and comletion tokens. Prices are different.
                         "cost": cb.total_cost * lapi.cost_efficiency,       # cost in USD
-                        "eof": index==chunks.count-1,       # end of content
+                        "eof": index == (len(chunks) - 1),       # end of content
                         }))
                     lapi.bookkeeping(query["balance"], cb.total_cost, cb.total_tokens, user)
 
