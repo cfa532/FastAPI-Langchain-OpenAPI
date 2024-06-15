@@ -37,23 +37,23 @@ class LeitherAPI:
     def register_in_db(self, user: UserInDB):
         print(user)
         if not self.get_user(user.username):
+            # create a mimei for the user and publish it onto web
+            user.mid = self.client.MMCreate(self.get_sid(), "FmKK37e1T0oGaQJXRMcMjyrmoxa", "user", user.username, 2, 0x07276705)
+            self.client.MiMeiPublish(self.sid, "", user.mid)
+
             mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")
             self.client.Hset(mmsid_cur, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
-            return True
+            print("Registered", user)
+            return user
         else:
-            return False
+            return None
     
     def register_cur_node(self, node_id, mid):
         # return error if any
-        err = self.client.MMSetRight(self.get_sid(), mid, node_id, 0xf)
-        if err:
-            return err
-        result,err = self.client.MiMeiPublish(self.sid, "", mid)
-        if err:
-            return err
+        self.client.MMSetRight(self.get_sid(), mid, node_id, 0xf)
+        result, _ = self.client.MiMeiPublish(self.sid, "", mid)
         print("Published new rights", result)
-        return None
 
     def get_user(self, username):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")

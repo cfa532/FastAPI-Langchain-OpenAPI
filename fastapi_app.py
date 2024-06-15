@@ -69,14 +69,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def authenticate_user(username: str, password: str):
-    user = lapi.get_user(username)
-    if not user:
-        return None
-    if not verify_password(password, user.hashed_password):
-        return None
-    return user
-
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -104,30 +96,29 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 @app.post(BASE_ROUTE+"/token")
 async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
-    user = authenticate_user(form_data.username, form_data.password)
-    if not user:
+
+    # authenticate user
+    user = lapi.get_user(form_data.username)
+    if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    # create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     token = Token(access_token=access_token, token_type="Bearer")
-    user_out = user.model_dump(exclude=["hashed_password"])
-    print(user)
-    return {"token": token, "user": user_out, "session": lapi.get_ppt()}    #pass user's Leither node IP
 
-@app.post(BASE_ROUTE+"/register_cur_node")
-async def register_cur_node(request: Request):
-    data = await request.json()
-    print(data)
-    err = lapi.register_cur_node(data["node_id"], data["mid"])
-    if err:
-        raise HTTPException(status_code=400, detail=err)
-    return {"status": "success"}
+    # set mimei rights on the given host id.
+    lapi.register_cur_node(form_data.client_id, user.mid)
+    
+    user_out = user.model_dump(exclude=["hashed_password"])
+    print(user_out)
+    return {"token": token, "user": user_out, "session": lapi.get_ppt()}    #pass user's Leither node IP
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
