@@ -43,7 +43,18 @@ class LeitherAPI:
             return True
         else:
             return False
-        
+    
+    def register_cur_node(self, node_id, mid):
+        # return error if any
+        err = self.client.MMSetRight(self.get_sid(), mid, node_id, 0xf)
+        if err:
+            return err
+        result,err = self.client.MiMeiPublish(self.sid, "", mid)
+        if err:
+            return err
+        print("Published new rights", result)
+        return None
+
     def get_user(self, username):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
         user = self.client.Hget(mmsid, USER_ACCOUNT_KEY, username)

@@ -120,6 +120,15 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     print(user)
     return {"token": token, "user": user_out, "session": lapi.get_ppt()}    #pass user's Leither node IP
 
+@app.post(BASE_ROUTE+"/register_cur_node")
+async def register_cur_node(request: Request):
+    data = await request.json()
+    print(data)
+    err = lapi.register_cur_node(data["node_id"], data["mid"])
+    if err:
+        raise HTTPException(status_code=400, detail=err)
+    return {"status": "success"}
+
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
     user_in_db = user.model_dump(exclude=["password"])
@@ -190,13 +199,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             message = await websocket.receive_text()
             event = json.loads(message)
             print(event)
-            # await websocket.send_text(json.dumps({
-            #         "type": "result",
-            #         "answer": "Message received fine", 
-            #         "tokens": "111",
-            #         "cost": "0.01"}))
-            # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
-            # continue
+            await websocket.send_text(json.dumps({
+                    "type": "result",
+                    "answer": "Message received. " + event["input"]["query"], 
+                    "tokens": "111",
+                    "cost": "0.01"}))
+            lapi.bookkeeping("gpt-4o", 0.014, 111, user)
+            continue
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
