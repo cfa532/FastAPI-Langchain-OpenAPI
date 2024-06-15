@@ -114,11 +114,11 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     token = Token(access_token=access_token, token_type="Bearer")
 
     # set mimei rights on the given host id.
-    lapi.register_cur_node(form_data.client_id, user.mid)
+    lapi.register_cur_node(form_data.client_id, user.mid, user)
     
     user_out = user.model_dump(exclude=["hashed_password"])
     print(user_out)
-    return {"token": token, "user": user_out, "session": lapi.get_ppt()}    #pass user's Leither node IP
+    return {"token": token, "user": user_out, "ppt": lapi.get_ppt()}    #pass user's Leither node IP
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
@@ -190,13 +190,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             message = await websocket.receive_text()
             event = json.loads(message)
             print(event)
-            await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": "Message received. " + event["input"]["query"], 
-                    "tokens": "111",
-                    "cost": "0.01"}))
-            lapi.bookkeeping("gpt-4o", 0.014, 111, user)
-            continue
+            # await websocket.send_text(json.dumps({
+            #         "type": "result",
+            #         "answer": "Message received. " + event["input"]["query"], 
+            #         "tokens": "111",
+            #         "cost": "0.01"}))
+            # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
+            # continue
             params = event["parameters"]
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(

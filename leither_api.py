@@ -49,11 +49,16 @@ class LeitherAPI:
         else:
             return None
     
-    def register_cur_node(self, node_id, mid):
+    def register_cur_node(self, node_id, mid, user):
         # return error if any
         self.client.MMSetRight(self.get_sid(), mid, node_id, 0xf)
-        result, _ = self.client.MiMeiPublish(self.sid, "", mid)
-        print("Published new rights", result)
+        self.client.MiMeiPublish(self.sid, "", mid)
+
+        # update host ID of this access
+        mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
+        user.host_id = node_id
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.username, json.dumps(user.model_dump()))
+        self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
 
     def get_user(self, username):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")

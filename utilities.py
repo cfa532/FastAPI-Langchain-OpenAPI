@@ -38,6 +38,7 @@ class UserOut(BaseModel):
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
     template: Union[dict, None] = None
+    host_id: Union[str, None] = None        # node id of user client.
 
 class UserIn(UserOut):
     password: Union[str, None] = None                           # the password is hashed in DB
