@@ -274,9 +274,16 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             llm_model = LLM_MODEL
 
             # when dollar balance is lower than $0.1, user gpt-3.5-turbo
-            if not query["subscription"] and query["balance"]<MIN_BALANCE:
-                llm_model = "gpt-3.5-turbo"
-                token_splitter._chunk_size = MAX_TOKEN["gpt-3.5-turbo"]
+            if not query["subscription"]:
+                if query["balance"] <= 0:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": "Low balance.", 
+                        }))
+                    continue
+                elif query["balance"] < MIN_BALANCE:
+                    llm_model = "gpt-3.5-turbo"
+                    token_splitter._chunk_size = MAX_TOKEN["gpt-3.5-turbo"]
 
             # create the right Chat LLM
             if params["llm"] == "openai":
@@ -329,7 +336,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
     except JWTError:
         print("JWTError", e)
         sys.stdout.flush()
-        await websocket.send_text(json.dumps({"type": "error", "error": "Invalid token"}))
+        await websocket.send_text(json.dumps({"type": "error", "message": "Invalid token"}))
     except HTTPException as e:
         print("HTTPException", e)
         sys.stdout.flush()
