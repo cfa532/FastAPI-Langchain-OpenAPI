@@ -242,6 +242,11 @@ async def apple_notifications(request: Request):
     except:
         raise HTTPException(status_code=400, detail="Invalid notification data")
 
+@app.get(BASE_ROUTE+"/notice")
+async def get_notice():
+    env = dotenv_values(".env")
+    return HTMLResponse(env["NOTICE"])
+
 @app.get(BASE_ROUTE+"/")
 async def get():
     return HTMLResponse("Hello world.")
