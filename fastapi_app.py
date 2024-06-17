@@ -1,4 +1,4 @@
-import json, sys, time, random, tiktoken
+import json, sys, time, random
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union, List
 from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
@@ -17,7 +17,8 @@ from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
-from apple_notification import decode_notification
+from apple_notification_sandbox import decode_notification_sandbox
+from apple_notification_production import decode_notification_production
 
 # to get a string like this run: openssl rand -hex 32
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
@@ -233,11 +234,20 @@ async def get_productIDs():
     # return HTMLResponse("Hello world.")
     return json.loads(product_ids)
 
-@app.post(BASE_ROUTE+"/app_server_notifications")
-async def apple_notifications(request: Request):
+@app.post(BASE_ROUTE+"/app_server_notifications_production")
+async def apple_notifications_production(request: Request):
     try:
         body = await request.json()
-        await decode_notification(body["signedPayload"])
+        await decode_notification_production(body["signedPayload"])
+        return {"status": "ok"}
+    except:
+        raise HTTPException(status_code=400, detail="Invalid notification data")
+
+@app.post(BASE_ROUTE+"/app_server_notifications_sandbox")
+async def apple_notifications_sandbox(request: Request):
+    try:
+        body = await request.json()
+        await decode_notification_sandbox(body["signedPayload"])
         return {"status": "ok"}
     except:
         raise HTTPException(status_code=400, detail="Invalid notification data")

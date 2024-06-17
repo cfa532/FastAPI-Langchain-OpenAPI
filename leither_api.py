@@ -48,22 +48,35 @@ class LeitherAPI:
         # given username, get its corresponding mimei
         return self.client.MMCreate(self.get_sid(), APPID_MIMEI_KEY, MIMEI_EXT, username, 1, 0x07276705)
     
+    def get_user_name(self, id):
+        # given user id, find username from the index db
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
+        user_str = self.client.Hget(mmsid, USER_ACCOUNT_KEY, id)
+        if not user_str:
+            return None
+        return json.loads(user_str).get("username")
+
     def register_temp_user(self, user: UserInDB) -> UserOut:
         user.mid = self.create_user_mm(user.username)
-        mmsid = self.client.MMOpen(self.get_sid(), user.mid, "cur")     # exception if "last" and user does not exist
+
+        # If the mm does not exist, open its "last" version will result in an exception. User "cur" instead.
+        mmsid = self.client.MMOpen(self.get_sid(), user.mid, "cur")
         if self.client.MFGetObject(mmsid):
             # the created mid is not empty, the username is taken.
             print("Temp user exists. Reuse it.")
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
-        user.id = user.username         # user's device identifier is used as username for now.
-        user.dollar_balance = self.init_balance
+        # user's device identifier is used as username for now. After user regisetered with a username,
+        # user.id will still be used as index in the main user db, and appAccountToken in Transaction.
+        # so when server receives notification from Apple Server, it is easier to find which user it belongs.
+        user.id = user.username         
+        user.dollar_balance = self.init_balance     # singup bonus offered for free trial.
         user.token_count = 0
-        user.monthly_usage = {datetime.now().month: 0}
+        user.monthly_usage = {datetime.now().month: 0}      # to enforce the spending cap of an user.
         user.dollar_usage = 0
-        user.creation_date = time.time()    # required by Apple
-        user.timestamp = user.creation_date
+        user.creation_date = time.time()    # required by Apple to know how long the user has been.
+        user.timestamp = user.creation_date     # updated each time the user used service.
 
         user_str = json.dumps(user.model_dump())
         self.client.MFSetObject(mmsid, user_str)
@@ -72,7 +85,7 @@ class LeitherAPI:
 
         # add new user to index database in Main Mimei
         mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
-        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.mid, user_str)
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.id, user_str)    # user.id as index to user object in main DB.
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         self.client.MiMeiPublish(self.sid, "", self.mid)
         return UserOut(**user.model_dump())
@@ -95,25 +108,28 @@ class LeitherAPI:
             # the user already has a mid, open the old mid and copy its content to the new mimei.
             mmsid_in_db = self.client.MMOpen(self.sid, user_in.mid, "last")
             user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
-                        # Update existing mimei data with incoming data
+            
+            # Update existing mimei data with registration information provided by user.
             user_in_db.username = user_in.username
             user_in_db.hashed_password = user_in.hashed_password
             user_in_db.family_name = user_in.family_name
             user_in_db.given_name = user_in.given_name
             user_in_db.email = user_in.email
-            user_in_db.mid = mid        # new Mimei id that is genereated with real username
+
+            # new Mimei id that is genereated with real username, so the mimei can be found with username quickly.
+            user_in_db.mid = mid
             print("After copy. user in db:", user_in_db)
 
             user_str = json.dumps(user_in_db.model_dump())
             self.client.MFSetObject(mmsid, user_str)
             self.client.MMBackup(self.sid, mid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, mid)
-            self.client.MMDelRef(self.sid, self.mid, user_in.mid)      # get rid of old mm
+            self.client.MMDelRef(self.sid, self.mid, user_in.mid)      # get rid of the temp mm for temp account.
 
             # update index Mimei db
             mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
-            self.client.Hset(mmsid, USER_ACCOUNT_KEY, mid, user_str)
-            self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
+            self.client.Hset(mmsid, USER_ACCOUNT_KEY, user_in_db.id, user_str)     # update temp user account with registered one.
+            # self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
             self.client.MiMeiPublish(self.sid, "", self.mid)
             return UserOut(**user_in_db.model_dump())
