@@ -45,7 +45,6 @@ class Purchase(BaseModel):
 class User(BaseModel):
     id: Union[str, None] = None             # use device identifier as appAccountToken.
     username: str
-    # subscription: bool = False            # Get subscripion status on device. It is managed by Apple
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None

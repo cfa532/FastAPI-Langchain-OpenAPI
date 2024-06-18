@@ -80,7 +80,7 @@ async def decode_notification(lapi, signedPayload):
             lapi.subscribed(transaction.appAccountToken.upper(), p)
 
         elif payLoad.rawNotificationType == "DID_RENEW":
-            transaction = decode_renewal_info(payLoad)
+            transaction = decode_transaction_info(payLoad)
             print(payLoad.rawNotificationType, payLoad.subtype, transaction)
             p = Purchase(
                 notificationType = payLoad.rawNotificationType,

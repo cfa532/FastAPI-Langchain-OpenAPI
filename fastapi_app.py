@@ -25,6 +25,7 @@ ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE = 480   # expires in 480 weeks
 BASE_ROUTE = "/secretari"
 MIN_BALANCE=0.1
+MAX_EXPENSE=15.0
 MAX_TOKEN = {
     "gpt-4o": 8192,
     "gpt-4": 4096,
@@ -72,14 +73,14 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def authenticate_user(username: str, password: str):
+def authenticate_user(username: str, password: str) -> UserOut:
     user = lapi.get_user(username)
     if user is None:
         return None
     if password != "" and not verify_password(password, user.hashed_password):
         # if password is empty string, this is a temp user. "" not equal to None.
         return None
-    return user
+    return UserOut(**user.model_dump())
 
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
@@ -126,8 +127,7 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
         data={"sub": user.username}, expires_delta=access_token_expires
     )
     token = Token(access_token=access_token, token_type="Bearer")
-    user_out = user.model_dump(exclude=["hashed_password"])
-    return {"token": token, "user": user_out}
+    return {"token": token, "user": user.model_dump()}
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn) -> UserOut:
@@ -156,11 +156,10 @@ async def update_user(user: UserIn, user_in_db: Annotated[UserInDB, Depends(get_
 
 @app.post(BASE_ROUTE+"/users/temp")
 async def register_temp_user(user: UserIn):
-    # A temp user has assigned username, usuall the device identifier. It does not login, so no taken is needed.
+    # A temp user has assigned username, usuall the device identifier.
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     user = lapi.register_temp_user(UserInDB(**user_in_db))
-    print("temp user created. ", user)
     if not user:
         raise HTTPException(status_code=400, detail="Failed to create temp User.")
     
@@ -273,15 +272,24 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
 
             # when dollar balance is lower than $0.1, user gpt-3.5-turbo
             if not query["subscription"]:
-                if query["balance"] <= 0:
+                if user.dollar_balance <= 0:
                     await websocket.send_text(json.dumps({
                         "type": "error",
-                        "message": "Low balance.", 
+                        "message": "Low balance. Please purchase consumable product or subscribe.", 
                         }))
                     continue
-                elif query["balance"] < MIN_BALANCE:
+                elif user.dollar_balance < MIN_BALANCE:
                     llm_model = "gpt-3.5-turbo"
                     token_splitter._chunk_size = MAX_TOKEN["gpt-3.5-turbo"]
+            else:
+                # a subscriber. Check monthly usage
+                current_month = str(datetime.now().month)
+                if user.monthly_usage[current_month] >= MAX_EXPENSE:
+                    await websocket.send_text(json.dumps({
+                        "type": "error",
+                        "message": "Monthly max expense exceeded. Purchase consumable product if necessary.", 
+                        }))
+                    continue
 
             # create the right Chat LLM
             if params["llm"] == "openai":
@@ -295,7 +303,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                     verbose = True
                 )     # ChatOpenAI cannot have max_token=-1
             elif params["llm"] == "qianfan":
-                pass
+                continue
 
             # lapi.bookkeeping(query["balance"], 0.015, 123, user)
             # await websocket.send_text(json.dumps({
