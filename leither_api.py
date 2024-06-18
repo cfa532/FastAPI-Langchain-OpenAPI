@@ -1,15 +1,16 @@
 import hprose, json, time, sys
 from datetime import datetime
-from utilities import UserInDB, UserOut
+from utilities import UserInDB, UserOut, Purchase
 from dotenv import load_dotenv, dotenv_values
 
-APPID_MIMEI_KEY = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
-USER_ACCOUNT_KEY = "SECRETARI_APP_USER_ACCOUNT_KEY"
-MIMEI_EXT = "mimei file"
-MIMEI_COUPON_KEY="SECRETARI_USER_COUPON_KEY"
+APPID_MIMEI_KEY: str = "FmKK37e1T0oGaQJXRMcMjyrmoxa"
+USER_ACCOUNT_KEY: str = "SECRETARI_APP_USER_ACCOUNT_KEY"
+MIMEI_EXT: str = "mimei file"
+MIMEI_COUPON_KEY: str = "SECRETARI_USER_COUPON_KEY"
 PRODUCTS={}     # in-app purchase products defined in Appconnect
 
 class LeitherAPI:
+ 
     def __init__(self):
         self.client = hprose.HttpClient('http://localhost:8081/webapi/')
         print(self.client.GetVar("", "ver"))
@@ -17,7 +18,7 @@ class LeitherAPI:
         self.api = self.client.Login(self.ppt)
         self.sid = self.api.sid
         self.uid = self.api.uid
-        self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "app", "secretari backend", 2, 0x07276705)
+        self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "App", "secretari backend", 2, 0x07276705)
         self.sid_time = time.time()
 
         # user .env to update important parameters. To update app settings without reboot.
@@ -34,7 +35,38 @@ class LeitherAPI:
         self.cost_efficiency = float(env["COST_EFFICIENCY"])
         PRODUCTS = json.loads(env["SECRETARI_PRODUCT_ID_IOS"])["ver0"]["productIDs"]     #{"890842":8.99,"Yearly.bunny0":89.99,"monthly.bunny0":8.99}
         
-    def get_sid(self):
+    # keep a record of all the purchase and subscriptions a customer made.
+    def recharge_user(self, userId: str, transaction: Purchase):
+        # find out which user made the purchase.
+        mmsid = self.client.MMOpen("", self.mid, "last")
+        user_str = self.client.Hget(mmsid, USER_ACCOUNT_KEY, userId)
+        buyer = UserInDB(**json.loads(user_str))
+        print("Before recharge:", buyer)
+    
+        # user.id is assigned to transaction.appAccountToken before purchase, so that we know who paid for the productId.
+        # Now get the mimei file where all user data is stored, and append new purchase data to it.
+        mmsid = self.client.MMOpen(self.sid, buyer.mid, "cur")
+        buyer = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
+
+        # transaction from Apple use local currency for price. Get USD price.
+        dollar_amount = float(PRODUCTS[transaction.productId])
+        
+        # remember the dollar balance at the time of recharge, in case of a refund, need to know how much left to refund
+        transaction.currentBalance = buyer.dollar_balance
+        buyer.dollar_balance += dollar_amount * transaction.quantity
+        buyer.accured_total += dollar_amount * transaction.quantity       # revenue from the user.
+        if buyer.purchase_history is None:
+            buyer.purchase_history = [transaction.model_dump()]
+        else:
+            buyer.purchase_history.append(transaction.model_dump())
+
+        self.client.MFSetObject(mmsid, json.dumps(buyer.model_dump()))
+        self.client.MMBackup(self.sid, buyer.mid, "", "delRef=true")
+
+        print("After recharge:", buyer)
+        return buyer
+
+    def get_sid(self) -> str:
         if time.time() - self.sid_time > 3600:
             self.api = self.client.Login(self.ppt)
             self.sid = self.api.sid
@@ -67,10 +99,10 @@ class LeitherAPI:
             mmsid = self.client.MMOpen(self.sid, user.mid, "last")
             return UserOut(**json.loads(self.client.MFGetObject(mmsid)))
 
-        # user's device identifier is used as username for now. After user regisetered with a username,
+        # user's device identifier is used as username for temp account. After user regisetered with a username,
         # user.id will still be used as index in the main user db, and appAccountToken in Transaction.
         # so when server receives notification from Apple Server, it is easier to find which user it belongs.
-        user.id = user.username         
+        user.id = user.username
         user.dollar_balance = self.init_balance     # singup bonus offered for free trial.
         user.token_count = 0
         user.monthly_usage = {datetime.now().month: 0}      # to enforce the spending cap of an user.
@@ -85,7 +117,7 @@ class LeitherAPI:
 
         # add new user to index database in Main Mimei
         mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
-        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.id, user_str)    # user.id as index to user object in main DB.
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.id.upper(), user_str)    # user.id as index to user object in main DB.
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         self.client.MiMeiPublish(self.sid, "", self.mid)
         return UserOut(**user.model_dump())
@@ -175,7 +207,7 @@ class LeitherAPI:
 
         coupon_in_db.redeemed = True
         coupon_in_db.expiration_date = time.time()
-        self.client.Hset(mmsid, MIMEI_COUPON_KEY, coupon, (coupon_in_db))
+        self.client.Hset(mmsid, MIMEI_COUPON_KEY, coupon, json.dumps(coupon_in_db))
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         self.client.MiMeiPublish(self.sid, "", self.mid)
         return True
@@ -202,28 +234,6 @@ class LeitherAPI:
         mmsid_cur = self.client.MMOpen(self.get_sid(), user_in_db.mid, "cur")
         self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
-
-    # keep a record of all the purchase and subscriptions a customer made.
-    def upload_recharge(self, current_user: UserInDB, purchase) -> UserOut:
-        # ["originalTransactionID": 2000000622918330, "product_id": "890842", "currency": "TWD", "transactionDate": 1717914627.067, "amount": 290]
-        purchase["balance"] = current_user.dollar_balance       # remember the dollar balance at the time of recharge,
-                                                                # in case of a refund, need to know how much to refund.
-        # Apple uses localized currency, so need to convert to dollar.
-        dollar_amount = float(PRODUCTS[purchase["product_id"]])
-        current_user.dollar_balance += dollar_amount
-        current_user.accured_total += dollar_amount        # revenue from the user.
-
-        if current_user.purchase_history is None:
-            current_user.purchase_history = [purchase]
-        else:
-            current_user.purchase_history.append(purchase)
-
-        mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
-        self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
-        self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")
-
-        print("After recharge:", current_user)
-        return current_user
 
     def subscribe_user(self, current_user, subscription) -> UserOut:
         if current_user.purchase_history is None:

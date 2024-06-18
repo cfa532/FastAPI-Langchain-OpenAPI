@@ -5,7 +5,8 @@ from appstoreserverlibrary.models.Environment import Environment
 from appstoreserverlibrary.models.SendTestNotificationResponse import SendTestNotificationResponse
 from appstoreserverlibrary.signed_data_verifier import VerificationException, SignedDataVerifier
 from typing import List
-from leither_api import LeitherAPI
+
+from utilities import Purchase
 
 # the following three are from Integrations tab of Users and Access in Apple connnect.
 key_id = "2PMR9NKLU7"
@@ -16,7 +17,6 @@ private_key = open('./SubscriptionKey_2PMR9NKLU7.p8', mode="rb").read()
 bundle_id = "secretari.leither.uk"
 app_apple_id = "6499114177"                 # app Apple ID must be provided for the Production environment
 
-lapi = LeitherAPI()
 environment = Environment.PRODUCTION
 client = AppStoreServerAPIClient(private_key, key_id, issuer_id, bundle_id, environment)
 
@@ -44,7 +44,7 @@ def decode_renewal_info(payLoad):
     if payLoad.data and payLoad.data.signedRenewalInfo:
         return signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedRenewalInfo)
     
-async def decode_notification_production(signedPayload):
+async def decode_notification(lapi, signedPayload):
     try:
         payLoad = signed_data_verifier.verify_and_decode_notification(signedPayload)
         # print(payLoad)
@@ -55,8 +55,9 @@ async def decode_notification_production(signedPayload):
         elif payLoad.rawNotificationType == "ONE_TIME_CHARGE":
             transaction = decode_transaction_info(payLoad)
             print("One time charge:", transaction)
-
             # find user who puchased the consumables with appAccountToken from index DB
+            t = Purchase(**transaction)
+            lapi.recharge_user(t)
 
         elif payLoad.rawNotificationType == "SUBSCRIBED":
             transaction = decode_transaction_info(payLoad)

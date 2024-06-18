@@ -5,7 +5,9 @@ from appstoreserverlibrary.models.Environment import Environment
 from appstoreserverlibrary.models.SendTestNotificationResponse import SendTestNotificationResponse
 from appstoreserverlibrary.signed_data_verifier import VerificationException, SignedDataVerifier
 from typing import List
-from leither_api import LeitherAPI
+
+from utilities import Purchase
+environment = Environment.SANDBOX
 
 # the following three are from Integrations tab of Users and Access in Apple connnect.
 key_id = "2PMR9NKLU7"
@@ -15,9 +17,6 @@ private_key = open('./SubscriptionKey_2PMR9NKLU7.p8', mode="rb").read()
 # The following two are in the App Information page on App Store connect
 bundle_id = "secretari.leither.uk"
 app_apple_id = "6499114177"                 # app Apple ID must be provided for the Production environment
-
-lapi = LeitherAPI()
-environment = Environment.SANDBOX
 client = AppStoreServerAPIClient(private_key, key_id, issuer_id, bundle_id, environment)
 
 def load_root_certificates(directory) -> List[bytes]:
@@ -44,10 +43,9 @@ def decode_renewal_info(payLoad):
     if payLoad.data and payLoad.data.signedRenewalInfo:
         return signed_data_verifier.verify_and_decode_signed_transaction(payLoad.data.signedRenewalInfo)
     
-async def decode_notification_sandbox(signedPayload):
+async def decode_notification(lapi, signedPayload):
     try:
         payLoad = signed_data_verifier.verify_and_decode_notification(signedPayload)
-        # print(payLoad)
         if payLoad.rawNotificationType == "CONSUMPTION_REQUEST":
             transaction = decode_transaction_info(payLoad)
             print("Refund request:", transaction)
@@ -55,8 +53,15 @@ async def decode_notification_sandbox(signedPayload):
         elif payLoad.rawNotificationType == "ONE_TIME_CHARGE":
             transaction = decode_transaction_info(payLoad)
             print("One time charge:", transaction)
-
             # find user who puchased the consumables with appAccountToken from index DB
+            p = Purchase(
+                productId = transaction.productId,
+                originalTransactionId = transaction.originalTransactionId,
+                transactionId = transaction.transactionId,
+                purchaseDate = transaction.purchaseDate/1000,       # convert to Python format
+                quantity = transaction.quantity)
+            print(p)
+            lapi.recharge_user(transaction.appAccountToken.upper(), p)
 
         elif payLoad.rawNotificationType == "SUBSCRIBED":
             transaction = decode_transaction_info(payLoad)
@@ -79,7 +84,7 @@ async def decode_notification_sandbox(signedPayload):
             return
 
     except VerificationException as e:
-        print("Verifcation exception:", e)
+        print("Decode exception:", e)
         raise e
 
 def request_test_notification():

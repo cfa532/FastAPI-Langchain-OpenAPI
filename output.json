@@ -21,3 +21,8 @@ version='2.0',
 signedDate=1717903415966, 
 summary=None, 
 externalPurchaseToken=None
+
+
+{
+    originalTransactionId='2000000629804991', transactionId='2000000629804991', webOrderLineItemId=None, bundleId='secretari.leither.uk', productId='890842', subscriptionGroupIdentifier=None, purchaseDate=1718589966000, originalPurchaseDate=1718589966000, expiresDate=None, quantity=1, type=<Type.CONSUMABLE: 'Consumable'>, rawType='Consumable', appAccountToken='850d9a5b-4594-45fa-8d67-181ba2513228', inAppOwnershipType=<InAppOwnershipType.PURCHASED: 'PURCHASED'>, rawInAppOwnershipType='PURCHASED', signedDate=1718589971674, revocationReason=None, rawRevocationReason=None, revocationDate=None, isUpgraded=None, offerType=None, rawOfferType=None, offerIdentifier=None, environment=<Environment.SANDBOX: 'Sandbox'>, rawEnvironment='Sandbox', storefront='TWN', storefrontId='143470', transactionReason=<TransactionReason.PURCHASE: 'PURCHASE'>, rawTransactionReason='PURCHASE', currency='TWD', price=290000, offerDiscountType=None, rawOfferDiscountType=None
+}

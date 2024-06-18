@@ -32,6 +32,14 @@ class UserGroup(BaseModel):
     description: str
     users: set[str]        # list of usernames
 
+class Purchase(BaseModel):
+    productId: str
+    transactionId: str
+    originalTransactionId: str
+    purchaseDate: float                   # datetime the purchase happened.
+    quantity: int = 1
+    currentBalance: float = 0.0         # the account balance at the time of this purchase.
+
 class User(BaseModel):
     id: Union[str, None] = None             # use device identifier as appAccountToken.
     username: str

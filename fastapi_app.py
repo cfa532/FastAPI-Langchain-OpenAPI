@@ -17,8 +17,7 @@ from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
-from apple_notification_sandbox import decode_notification_sandbox
-from apple_notification_production import decode_notification_production
+import apple_notification_sandbox, apple_notification_production
 
 # to get a string like this run: openssl rand -hex 32
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
@@ -176,15 +175,6 @@ async def register_temp_user(user: UserIn):
     # create a token for temp user too, so they can buy product and access premium service without login.
     return {"token": token, "user": user}
 
-# upload purchase to server
-@app.post(BASE_ROUTE+"/users/recharge")
-async def upload_purchase(purchase: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
-    print("purchase:", purchase)
-    try:
-        return lapi.upload_recharge(current_user, purchase)
-    except:
-        raise HTTPException(status_code=400, detail="Failed to upload recharge data.")
-
 @app.post(BASE_ROUTE + "/users/subscribe")
 async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
     return lapi.subscribe_user(current_user, subscription)
@@ -238,7 +228,7 @@ async def get_productIDs():
 async def apple_notifications_production(request: Request):
     try:
         body = await request.json()
-        await decode_notification_production(body["signedPayload"])
+        await apple_notification_production.decode_notification(lapi, body["signedPayload"])
         return {"status": "ok"}
     except:
         raise HTTPException(status_code=400, detail="Invalid notification data")
@@ -247,7 +237,7 @@ async def apple_notifications_production(request: Request):
 async def apple_notifications_sandbox(request: Request):
     try:
         body = await request.json()
-        await decode_notification_sandbox(body["signedPayload"])
+        await apple_notification_sandbox.decode_notification(lapi, body["signedPayload"])
         return {"status": "ok"}
     except:
         raise HTTPException(status_code=400, detail="Invalid notification data")
