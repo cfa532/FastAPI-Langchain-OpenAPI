@@ -155,8 +155,9 @@ class LeitherAPI:
             print("username is taken", user_in_db)
             return None
         else:
-            # the user already has a mid, open the old mid and copy its content to the new mimei.
-            mmsid_in_db = self.client.MMOpen(self.sid, user_in.mid, "last")
+            # the user already has a mid, which is generated wiht its temp name, aka user.id
+            temp_mid = self.create_user_mm(user_in.id)
+            mmsid_in_db = self.client.MMOpen(self.sid, temp_mid, "last")
             user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
             
             # Update existing mimei data with registration information provided by user.

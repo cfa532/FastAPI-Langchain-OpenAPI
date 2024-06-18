@@ -46,7 +46,6 @@ class User(BaseModel):
     id: Union[str, None] = None             # use device identifier as appAccountToken.
     username: str
     # subscription: bool = False            # Get subscripion status on device. It is managed by Apple
-    mid: Union[str, None] = None            # the user's mid, which is a mimei file
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
@@ -62,6 +61,7 @@ class UserIn(User):
     password: str                                   # the password is hashed in DB
 
 class UserInDB(UserOut):
+    mid: Union[str, None] = None            # the user's mid, which is a mimei file
     hashed_password: str
     creation_date: float = time.time()              # when user is created
     timestamp: float = time.time()                  # last time service is used
