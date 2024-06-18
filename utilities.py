@@ -33,9 +33,11 @@ class UserGroup(BaseModel):
     users: set[str]        # list of usernames
 
 class Purchase(BaseModel):
+    notificationType: str
     productId: str
     transactionId: str
     originalTransactionId: str
+    originalPurchaseDate: float
     purchaseDate: float                   # datetime the purchase happened.
     quantity: int = 1
     currentBalance: float = 0.0         # the account balance at the time of this purchase.
@@ -48,11 +50,6 @@ class User(BaseModel):
     email: Union[str, None] = None          # if present, useful for reset password
     family_name: Union[str, None] = None
     given_name: Union[str, None] = None
-
-    # def model_dump(self, exclude: list = []):
-    #     if "password" in exclude:
-    #         exclude.remove("password")
-    #     return {k: v for k, v in self.dict().items() if k not in exclude}
     
 class UserOut(User):
     # bookkeeping information is based on server records. User keep a copy on its device as FYI

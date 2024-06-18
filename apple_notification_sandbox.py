@@ -46,26 +46,38 @@ def decode_renewal_info(payLoad):
 async def decode_notification(lapi, signedPayload):
     try:
         payLoad = signed_data_verifier.verify_and_decode_notification(signedPayload)
+        print(payLoad.rawNotificationType, payLoad.subtype)
+        
         if payLoad.rawNotificationType == "CONSUMPTION_REQUEST":
             transaction = decode_transaction_info(payLoad)
             print("Refund request:", transaction)
 
         elif payLoad.rawNotificationType == "ONE_TIME_CHARGE":
             transaction = decode_transaction_info(payLoad)
-            print("One time charge:", transaction)
+            print(payLoad.rawNotificationType, transaction)
             # find user who puchased the consumables with appAccountToken from index DB
             p = Purchase(
+                notificationType = payLoad.rawNotificationType,
                 productId = transaction.productId,
                 originalTransactionId = transaction.originalTransactionId,
+                originalPurchaseDate = transaction.originalPurchaseDate/1000,
                 transactionId = transaction.transactionId,
                 purchaseDate = transaction.purchaseDate/1000,       # convert to Python format
                 quantity = transaction.quantity)
-            print(p)
             lapi.recharge_user(transaction.appAccountToken.upper(), p)
 
-        elif payLoad.rawNotificationType == "SUBSCRIBED":
+        elif payLoad.rawNotificationType == "SUBSCRIBED" or payLoad.rawNotificationType == "DID_RENEW":
             transaction = decode_transaction_info(payLoad)
-            print("SUBSCRIBED:", transaction)
+            print(payLoad.rawNotificationType, payLoad.subtype, transaction)
+            p = Purchase(
+                notificationType = payLoad.rawNotificationType,
+                productId = transaction.productId,
+                originalTransactionId = transaction.originalTransactionId,
+                originalPurchaseDate = transaction.originalPurchaseDate/1000,
+                transactionId = transaction.transactionId,
+                purchaseDate = transaction.purchaseDate/1000,       # convert to Python format
+                quantity = transaction.quantity)
+            lapi.subscribed(transaction.appAccountToken.upper(), p)
 
         elif payLoad.rawNotificationType == "REFUND":
             transaction = decode_transaction_info(payLoad)
@@ -80,7 +92,9 @@ async def decode_notification(lapi, signedPayload):
             # To do ....
             return
         else:
-            print("Unknown notification type", payLoad)
+            print("Unhandled notifications:", payLoad.rawNotificationType)
+            transaction = decode_transaction_info(payLoad)
+            print(transaction)
             return
 
     except VerificationException as e:

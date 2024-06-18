@@ -22,7 +22,7 @@ import apple_notification_sandbox, apple_notification_production
 # to get a string like this run: openssl rand -hex 32
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE = 480   # expires
+ACCESS_TOKEN_EXPIRE = 480   # expires in 480 weeks
 BASE_ROUTE = "/secretari"
 MIN_BALANCE=0.1
 MAX_TOKEN = {
@@ -114,7 +114,6 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 @app.post(BASE_ROUTE+"/token")
 async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
     print("form data", form_data.username, form_data.client_id)
-    start_time = time.time()
     user = authenticate_user(form_data.username, form_data.password)
     if not user:
         raise HTTPException(
@@ -128,7 +127,6 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     )
     token = Token(access_token=access_token, token_type="Bearer")
     user_out = user.model_dump(exclude=["hashed_password"])
-    print("--- %s seconds ---" % (time.time() - start_time))
     return {"token": token, "user": user_out}
 
 @app.post(BASE_ROUTE+"/users/register")
@@ -326,8 +324,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                         "type": "result",
                         "answer": resp,
                         "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and comletion tokens. Prices are different.
-                        "cost": cb.total_cost * lapi.cost_efficiency,       # cost in USD
-                        "eof": index == (len(chunks) - 1),       # end of content
+                        "cost": cb.total_cost * lapi.cost_efficiency,           # total cost in USD
+                        "eof": index == (len(chunks) - 1),                      # end of content
                         }))
                     lapi.bookkeeping(query["balance"], cb.total_cost, cb.total_tokens, user)
 

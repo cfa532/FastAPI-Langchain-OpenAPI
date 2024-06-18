@@ -41,7 +41,6 @@ class LeitherAPI:
         mmsid = self.client.MMOpen("", self.mid, "last")
         user_str = self.client.Hget(mmsid, USER_ACCOUNT_KEY, userId)
         buyer = UserInDB(**json.loads(user_str))
-        print("Before recharge:", buyer)
     
         # user.id is assigned to transaction.appAccountToken before purchase, so that we know who paid for the productId.
         # Now get the mimei file where all user data is stored, and append new purchase data to it.
@@ -62,9 +61,28 @@ class LeitherAPI:
 
         self.client.MFSetObject(mmsid, json.dumps(buyer.model_dump()))
         self.client.MMBackup(self.sid, buyer.mid, "", "delRef=true")
-
         print("After recharge:", buyer)
         return buyer
+
+    def subscribed(self, userId: str, transaction: Purchase):
+        mmsid = self.client.MMOpen("", self.mid, "last")
+        user_str = self.client.Hget(mmsid, USER_ACCOUNT_KEY, userId)
+        buyer = UserInDB(**json.loads(user_str))
+
+        mmsid = self.client.MMOpen(self.sid, buyer.mid, "cur")
+        buyer = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
+
+        # transaction from Apple use local currency for price. Get USD price.
+        # record total income from the user
+        buyer.accured_total += float(PRODUCTS[transaction.productId])
+        if buyer.subscription_history is None:
+            buyer.subscription_history = [transaction.model_dump()]
+        else:
+            buyer.subscription_history.append(transaction.model_dump())
+
+        self.client.MFSetObject(mmsid, json.dumps(buyer.model_dump()))
+        self.client.MMBackup(self.sid, buyer.mid, "", "delRef=true")
+        print("After subscription:", buyer)
 
     def get_sid(self) -> str:
         if time.time() - self.sid_time > 3600:
@@ -217,16 +235,17 @@ class LeitherAPI:
 
     def bookkeeping(self, dollar_balance: float, total_cost: float, token_cost: int, user_in_db: UserInDB):
         # update monthly expense. Times the cost efficiency to include profit.
-        user_in_db.dollar_usage += total_cost * self.cost_efficiency    # total usage in dollar amount. Full history
-        user_in_db.dollar_balance = dollar_balance - total_cost * self.cost_efficiency  # keep sync with device
+        dollar_cost = total_cost * self.cost_efficiency
+        user_in_db.dollar_usage += dollar_cost    # total usage in dollar amount. Full history
+        user_in_db.dollar_balance = dollar_balance - dollar_cost  # keep sync with device
         user_in_db.token_count += int(token_cost * self.cost_efficiency)
 
         last_month = datetime.fromtimestamp(user_in_db.timestamp).month
         current_month = datetime.now().month
         if last_month != current_month:
-            user_in_db.monthly_usage[str(current_month)] = total_cost * self.cost_efficiency       # a new month
+            user_in_db.monthly_usage[str(current_month)] = dollar_cost       # a new month
         else:
-            user_in_db.monthly_usage[str(current_month)] += total_cost * self.cost_efficiency     # usage of the month
+            user_in_db.monthly_usage[str(current_month)] += dollar_cost     # usage of the month
         user_in_db.timestamp = time.time()
         print("In bookkeeper, user in db:", user_in_db)
         sys.stdout.flush()
@@ -234,16 +253,3 @@ class LeitherAPI:
         mmsid_cur = self.client.MMOpen(self.get_sid(), user_in_db.mid, "cur")
         self.client.MFSetObject(mmsid_cur, json.dumps(user_in_db.model_dump()))
         self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
-
-    def subscribe_user(self, current_user, subscription) -> UserOut:
-        if current_user.purchase_history is None:
-            current_user.purchase_history = [subscription]
-        else:
-            current_user.purchase_history.append(subscription)
-
-        mmsid = self.client.MMOpen(self.get_sid(), current_user.mid, "cur")
-        self.client.MFSetObject(mmsid, json.dumps(current_user.model_dump()))
-        self.client.MMBackup(self.sid, current_user.mid, "", "delRef=true")
-
-        print("After subscription:", current_user)
-        return current_user
