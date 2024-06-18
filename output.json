@@ -29,3 +29,15 @@ signedDate=1717903415966,
 summary=None, 
 externalPurchaseToken=None
 
+{'id': '850D9A5B-4594-45FA-8D67-181BA2513228', 'username': '850D9A5B-4594-45FA-8D67-181BA2513228', 'mid': 'pTRwm0v2e1tYebxT39EFsCNnKpg', 'email': None, 'family_name': None, 'given_name': None, 'dollar_balance': 18.18, 'monthly_usage': {'6': 0
+    }, 'token_count': 0, 'hashed_password': '+HbhSkT3ma2W4leNhQOteNKYCv1VXwUINgDv68nCxX2n7emCgOAFn78BNqOP42NG', 'creation_date': 1718664873.3462474, 'timestamp': 1718664873.3462474, 'dollar_usage': 0.0, 'accured_total': 17.98, 'purchase_history': [
+        {'productId': '890842', 'transactionId': '2000000630871958', 'originalTransactionId': '2000000630871958', 'purchaseDate': 1718665057.0, 'quantity': 1, 'currentBalance': 0.2
+        },
+        {'plan': 'Auto-Renewable Subscription', 'product_id': 'monthly.bunny0', 'version': 'ver0', 'appAccountToken': '850D9A5B-4594-45FA-8D67-181BA2513228', 'end_date': 1718671492, 'price': 290, 'start_date': 1718671192, 'originalID': 2000000630901453
+        },
+        {'price': 2990, 'product_id': 'Yearly.bunny0', 'plan': 'Auto-Renewable Subscription', 'end_date': 1718679620, 'appAccountToken': '850D9A5B-4594-45FA-8D67-181BA2513228', 'start_date': 1718676020, 'version': 'ver0', 'originalID': 2000000630941536
+        },
+        {'notificationType': 'ONE_TIME_CHARGE', 'productId': '890842', 'transactionId': '2000000631114727', 'originalTransactionId': '2000000631114727', 'originalPurchaseDate': 1718689257.0, 'purchaseDate': 1718689257.0, 'quantity': 1, 'currentBalance': 9.19
+        }
+    ]
+}

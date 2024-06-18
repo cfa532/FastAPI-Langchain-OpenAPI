@@ -68,10 +68,10 @@ class LeitherAPI:
         mmsid = self.client.MMOpen("", self.mid, "last")
         user_str = self.client.Hget(mmsid, USER_ACCOUNT_KEY, userId)
         buyer = UserInDB(**json.loads(user_str))
-
+        print(buyer)
         mmsid = self.client.MMOpen(self.sid, buyer.mid, "cur")
         buyer = UserInDB(**json.loads(self.client.MFGetObject(mmsid)))
-
+        print(buyer)
         # transaction from Apple use local currency for price. Get USD price.
         # record total income from the user
         buyer.accured_total += float(PRODUCTS[transaction.productId])
