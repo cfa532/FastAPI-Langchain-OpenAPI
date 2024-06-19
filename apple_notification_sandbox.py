@@ -90,7 +90,6 @@ async def decode_notification(lapi, signedPayload):
                 transactionId = transaction.transactionId,
                 purchaseDate = transaction.purchaseDate/1000,       # convert to Python format
                 quantity = transaction.quantity)
-            print(p)
             lapi.subscribed(transaction.appAccountToken.upper(), p)
 
         elif payLoad.rawNotificationType == "REFUND":

@@ -55,7 +55,6 @@ async def decode_notification(lapi, signedPayload):
         elif payLoad.rawNotificationType == "ONE_TIME_CHARGE":
             transaction = decode_transaction_info(payLoad)
             print(payLoad.rawNotificationType, transaction)
-            # find user who puchased the consumables with appAccountToken from index DB
             p = Purchase(
                 notificationType = payLoad.rawNotificationType,
                 productId = transaction.productId,
@@ -64,8 +63,10 @@ async def decode_notification(lapi, signedPayload):
                 transactionId = transaction.transactionId,
                 purchaseDate = transaction.purchaseDate/1000,       # convert to Python format
                 quantity = transaction.quantity)
+            # find user who puchased the consumables with appAccountToken from index DB
             lapi.recharge_user(transaction.appAccountToken.upper(), p)
 
+        # for subscribers, just append a new record in purchase history
         elif payLoad.rawNotificationType == "SUBSCRIBED":
             transaction = decode_transaction_info(payLoad)
             print(payLoad.rawNotificationType, payLoad.subtype, transaction)
@@ -90,7 +91,6 @@ async def decode_notification(lapi, signedPayload):
                 transactionId = transaction.transactionId,
                 purchaseDate = transaction.purchaseDate/1000,       # convert to Python format
                 quantity = transaction.quantity)
-            print(p)
             lapi.subscribed(transaction.appAccountToken.upper(), p)
 
         elif payLoad.rawNotificationType == "REFUND":
