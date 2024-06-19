@@ -305,7 +305,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             elif params["llm"] == "qianfan":
                 continue
 
-            # lapi.bookkeeping(query["balance"], 0.015, 123, user)
+            # lapi.bookkeeping(0.015, 123, user)
             # await websocket.send_text(json.dumps({
             #     "type": "result",
             #     "answer": event["input"]["rawtext"], 
@@ -335,14 +335,14 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                         "cost": cb.total_cost * lapi.cost_efficiency,           # total cost in USD
                         "eof": index == (len(chunks) - 1),                      # end of content
                         }))
-                    lapi.bookkeeping(query["balance"], cb.total_cost, cb.total_tokens, user)
+                    lapi.bookkeeping(cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
     except JWTError:
         print("JWTError", e)
         sys.stdout.flush()
-        await websocket.send_text(json.dumps({"type": "error", "message": "Invalid token"}))
+        await websocket.send_text(json.dumps({"type": "error", "message": "Invalid token. Try to re-login."}))
     except HTTPException as e:
         print("HTTPException", e)
         sys.stdout.flush()
