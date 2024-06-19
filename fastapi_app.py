@@ -284,7 +284,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             else:
                 # a subscriber. Check monthly usage
                 current_month = str(datetime.now().month)
-                if user.monthly_usage[current_month] >= MAX_EXPENSE:
+                if user.monthly_usage.get(current_month) and user.monthly_usage.get(current_month) >= MAX_EXPENSE:
                     await websocket.send_text(json.dumps({
                         "type": "error",
                         "message": "Monthly max expense exceeded. Purchase consumable product if necessary.", 
