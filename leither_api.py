@@ -240,7 +240,7 @@ class LeitherAPI:
         else:
             user_in_db.monthly_usage[str(current_month)] += dollar_cost     # usage of the month
         user_in_db.timestamp = time.time()
-        print("In bookkeeper, user in db:", user_in_db)
+        print("In bookkeeper, user in db:", UserOut(**user_in_db.model_dump()))
         sys.stdout.flush()
         
         mmsid_cur = self.client.MMOpen(self.get_sid(), user_in_db.mid, "cur")

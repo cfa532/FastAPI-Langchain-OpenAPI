@@ -34,9 +34,12 @@ MAX_TOKEN = {
 }
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
+
 env = dotenv_values(".env")
 LLM_MODEL = env["CURRENT_LLM_MODEL"]
 OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
+SERVER_MAINTENCE=env["SERVER_MAINTENCE"]
+
 token_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
     encoding_name="cl100k_base",
     chunk_size=MAX_TOKEN[LLM_MODEL]/4*3,  # Set your desired chunk size in tokens
@@ -56,10 +59,11 @@ scheduler = BackgroundScheduler()
 
 def periodic_task():
     env = dotenv_values(".env")
-    global LLM_MODEL, OPENAI_KEYS
+    global LLM_MODEL, OPENAI_KEYS, SERVER_MAINTENCE
     # export as defualt parameters. Values updated hourly.
     LLM_MODEL = env["CURRENT_LLM_MODEL"]
     OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
+    SERVER_MAINTENCE=env["SERVER_MAINTENCE"]
 
 scheduler.add_job(periodic_task, 'interval', seconds=3600)
 scheduler.start()
@@ -261,6 +265,14 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
         user = lapi.get_user(username=token_data.username)
         if not user:
             raise WebSocketDisconnect
+        
+        if SERVER_MAINTENCE == "true":
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "Server is under maintenance. Please try again later.",
+                }))
+            await websocket.close()
+            return
         
         while True:
             message = await websocket.receive_text()
