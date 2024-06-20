@@ -282,6 +282,10 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             params = event["parameters"]
             llm_model = LLM_MODEL
 
+            # Turbo seems to have just the right content for memo. 4o does better in summarizing.
+            if query["prompt_type"] == "memo":
+                llm_model = "gpt-4-turbo"
+
             # when dollar balance is lower than $0.1, user gpt-3.5-turbo
             if not query["subscription"]:
                 if user.dollar_balance <= 0:
@@ -306,7 +310,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             # create the right Chat LLM
             if params["llm"] == "openai":
                 # randomly select OpenAI key from a list
-                print(OPENAI_KEYS)
                 CHAT_LLM = ChatOpenAI(
                     api_key = random.choice(OPENAI_KEYS),       # pick a random OpenAI key from a list
                     temperature = float(params["temperature"]),
