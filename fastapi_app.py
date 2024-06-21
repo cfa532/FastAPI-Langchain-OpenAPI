@@ -145,19 +145,6 @@ async def register_user(user: UserIn) -> UserOut:
     print("User out", user)
     return user
 
-@app.post(BASE_ROUTE+"/users/update")
-async def update_user(user: UserIn, user_in_db: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
-    user_in_db.family_name = user.family_name
-    user_in_db.given_name = user.given_name
-    user_in_db.email = user.email
-    # if User password is null, do not update it.
-    if user.password:
-        user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
-
-    user = lapi.update_user(user_in_db)
-    print("User out", user)
-    return user
-
 @app.post(BASE_ROUTE+"/users/temp")
 async def register_temp_user(user: UserIn):
     # A temp user has assigned username, usuall the device identifier.
@@ -176,47 +163,21 @@ async def register_temp_user(user: UserIn):
     # create a token for temp user too, so they can buy product and access premium service without login.
     return {"token": token, "user": user}
 
-@app.post(BASE_ROUTE + "/users/subscribe")
-async def subscribe_user(subscription: dict, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> UserOut:
-    return lapi.subscribe_user(current_user, subscription)
-
 # redeem coupons
 @app.post(BASE_ROUTE+"/users/redeem")
 async def cash_coupon(coupon: str, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> bool:
     return lapi.cash_coupon(current_user, coupon)
 
-@app.get(BASE_ROUTE+"/users", response_model=UserOut)
-async def get_user_by_id(id: str, current_user: Annotated[UserInDB, Depends(get_current_user)]):
-    if current_user.role != "admin" and current_user.username != id:
-        raise HTTPException(status_code=400, detail="Not admin")
-    return lapi.get_user(id)
-    # return current_user
-
-@app.get(BASE_ROUTE+"/users/all", response_model=List[UserOut])
-async def get_all_users(current_user: Annotated[UserInDB, Depends(get_current_user)]):
-    if current_user.role != "admin":
-        return [UserOut(**current_user.model_dump())] 
-    return lapi.get_users()
-
-@app.delete(BASE_ROUTE+"/users/{username}")
-async def delete_user_by_id(username: str, current_user: Annotated[UserInDB, Depends(get_current_user)]):
-    if current_user.role != "admin" and current_user.username != username:
-        raise HTTPException(status_code=400, detail="Not admin")
-    return lapi.delete_user(username)
-
 #update user infor
 @app.put(BASE_ROUTE+"/users")
-async def update_user_by_obj(user: UserIn, current_user: Annotated[UserInDB, Depends(get_current_user)]):
-    if current_user.role != "admin" and current_user.username != user.username:
-        raise HTTPException(status_code=400, detail="Not admin")
-    user_in_db = user.model_dump(exclude=["password"])
-
-    # if no password, do not update it
-    if not user.password:
-        user_in_db["hashed_password"] = ""
-    else:
-        user_in_db["hashed_password"] = get_password_hash(user.password)
-    return lapi.update_user(UserInDB(**user_in_db))
+async def update_user_by_obj(user: UserIn, user_in_db: Annotated[UserInDB, Depends(get_current_user)]):
+    user_in_db.family_name = user.family_name
+    user_in_db.given_name = user.given_name
+    user_in_db.email = user.email
+    # if User password is null, do not update it.
+    if user.password:
+        user_in_db.hashed_password = get_password_hash(user.password)  # save hashed password in DB
+    return lapi.update_user(user_in_db).model_dump()
 
 # get current product IDs
 @app.get(BASE_ROUTE+"/productids")
@@ -248,9 +209,12 @@ async def get_notice():
     env = dotenv_values(".env")
     return HTMLResponse(env["NOTICE"])
 
-@app.get(BASE_ROUTE+"/")
-async def get():
-    return HTMLResponse("Hello world.")
+@app.get(BASE_ROUTE+"/", response_class=HTMLResponse)
+async def get_files():
+    filepath = "./public/index.html"
+    with open(filepath, "r") as file:
+        content = file.read()
+    return HTMLResponse(content=content)
 
 @app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
@@ -336,7 +300,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                 with get_cost_tracker_callback(llm_model) as cb:
                     # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
                     print(ci)
-                    async for chunk in chain.astream(query["prompt"] +"\nIf the text is too short. Add proper punctuations and return it as is.\n\n"+ ci):
+                    async for chunk in chain.astream(query["prompt"] + "\n\n" + ci):
                         print(chunk.content, end="|", flush=True)    # chunk size can be big
                         resp += chunk.content
                         await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
