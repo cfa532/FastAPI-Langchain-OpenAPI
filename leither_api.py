@@ -34,7 +34,7 @@ class LeitherAPI:
         self.init_balance = float(env["SIGNUP_BONUS"])
         self.cost_efficiency = float(env["COST_EFFICIENCY"])
         PRODUCTS = json.loads(env["SECRETARI_PRODUCT_ID_IOS"])["ver0"]["productIDs"]     #{"890842":8.99,"Yearly.bunny0":89.99,"monthly.bunny0":8.99}
-        print("Products:", PRODUCTS)
+        print("Products of the hour:", PRODUCTS)
 
     # keep a record of all the purchase and subscriptions a customer made.
     # process message from Apple notification server. UserId is the only identifier of the user.
