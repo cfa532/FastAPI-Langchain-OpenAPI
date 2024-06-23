@@ -154,23 +154,24 @@ class LeitherAPI:
             return None
         else:
             # the user already has a mid, which is generated wiht its temp name, aka user.id
-            temp_mid = self.create_user_mm(user_in.id)
-            # open incumbent account to read user info
-            mmsid_in_db = self.client.MMOpen(self.sid, temp_mid, "last")
-            user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
+            mmsid_of_db = self.client.MMOpen(self.sid, self.mid, "last")
+            user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid_of_db, USER_ACCOUNT_KEY, user_in.id)))
+            # open incumbent account to get user mid, which might points to temp mm or previous mimei
+            mmsid_in_db = self.client.MMOpen(self.sid, user_in_db.mid, "last")
+            user_in_mm = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
             
             # Update existing mimei data with registration information provided by user.
-            user_in_db.username = user_in.username
-            user_in_db.hashed_password = user_in.hashed_password
-            user_in_db.family_name = user_in.family_name
-            user_in_db.given_name = user_in.given_name
-            user_in_db.email = user_in.email
+            user_in_mm.username = user_in.username
+            user_in_mm.hashed_password = user_in.hashed_password
+            user_in_mm.family_name = user_in.family_name
+            user_in_mm.given_name = user_in.given_name
+            user_in_mm.email = user_in.email
 
             # new Mimei id that is genereated with real username, so the mimei can be found with username quickly.
-            user_in_db.mid = mid
-            print("After copy. user in db:", user_in_db)
+            user_in_mm.mid = mid
+            print("After copy. user in db:", user_in_mm)
 
-            user_str = json.dumps(user_in_db.model_dump())
+            user_str = json.dumps(user_in_mm.model_dump())
             self.client.MFSetObject(mmsid, user_str)
             self.client.MMBackup(self.sid, mid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, mid)
@@ -184,6 +185,9 @@ class LeitherAPI:
             # self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
             self.client.MiMeiPublish(self.sid, "", self.mid)
+
+            self.client.MMDelVers(self.sid, user_in_db.mid)
+            # self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
             return UserOut(**user_in_db.model_dump())
         
     def update_user(self, user_in: UserInDB) -> UserOut:
