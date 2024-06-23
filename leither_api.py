@@ -142,10 +142,7 @@ class LeitherAPI:
         return UserOut(**user.model_dump())
 
     # The function is called when user create a real account by providing personal information.
-    # The username shall be different from identifier, used as username in temproral account.
-    # A temporary user account has been created when user installed Secretari app. 
-    # The username is set with device identifier, for a better user experience.
-    # This temp account will be deleted after registration. 
+    # Before it, a device identifier is used as username in temporary account, which will be deleted after registration. 
     def register_in_db(self, user_in: UserInDB) -> UserOut:
         mid = self.create_user_mm(user_in.username)
         mmsid = self.client.MMOpen(self.get_sid(), mid, "cur")
@@ -158,6 +155,7 @@ class LeitherAPI:
         else:
             # the user already has a mid, which is generated wiht its temp name, aka user.id
             temp_mid = self.create_user_mm(user_in.id)
+            # open incumbent account to read user info
             mmsid_in_db = self.client.MMOpen(self.sid, temp_mid, "last")
             user_in_db = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
             
@@ -176,7 +174,9 @@ class LeitherAPI:
             self.client.MFSetObject(mmsid, user_str)
             self.client.MMBackup(self.sid, mid, "", "delRef=true")
             self.client.MMAddRef(self.sid, self.mid, mid)
-            self.client.MMDelRef(self.sid, self.mid, user_in.mid)      # get rid of the temp mm for temp account.
+
+            # remove reference to temp account mimei.
+            self.client.MMDelRef(self.sid, self.mid, user_in.mid)
 
             # update index Mimei db
             mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
