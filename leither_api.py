@@ -85,6 +85,7 @@ class LeitherAPI:
 
     def get_sid(self) -> str:
         if time.time() - self.sid_time > 3600:
+            self.ppt = self.client.GetVarByContext("", "context_ppt")   # get new ppt everytime
             self.api = self.client.Login(self.ppt)
             self.sid = self.api.sid
             self.sid_time = time.time()
