@@ -91,6 +91,9 @@ class LeitherAPI:
 
             # reload some parameters. Every hour with the sid update
             self.load_env()
+
+            # publish data changes every hour
+            self.client.MiMeiPublish(self.sid, "", self.mid)
         return self.sid
 
     def create_user_mm(self, username) -> str:
@@ -182,12 +185,10 @@ class LeitherAPI:
             # update index Mimei db
             mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
             self.client.Hset(mmsid, USER_ACCOUNT_KEY, user_in_db.id, user_str)     # update temp user account with registered one.
-            # self.client.Hdel(mmsid, USER_ACCOUNT_KEY, user_in.mid)
             self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
             self.client.MiMeiPublish(self.sid, "", self.mid)
 
             self.client.MMDelVers(self.sid, user_in_db.mid)
-            # self.client.MMBackup(self.sid, user_in_db.mid, "", "delRef=true")
             return UserOut(**user_in_db.model_dump())
         
     def update_user(self, user_in: UserInDB) -> UserOut:
