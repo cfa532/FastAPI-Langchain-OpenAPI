@@ -1,14 +1,13 @@
-import json, sys, time, os
+import json, sys, time, os, tiktoken
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
+from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
-# from fastapi_jwt_auth import AuthJWT
-from starlette.websockets import WebSocketState
+
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
@@ -37,6 +36,7 @@ credentials_exception = HTTPException(
     headers={"WWW-Authenticate": "Bearer"},
 )
 connectionManager = ConnectionManager()
+tiktoken_encoder = tiktoken.get_encoding("cl100k_base")
 lapi = LeitherAPI()
 
 class Token(BaseModel):
@@ -217,7 +217,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
                 hlen = 0
                 for c in event["input"]["history"]:
-                    hlen += len(c["Q"]) + len(c["A"])
+                    hlen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
                     if hlen > MAX_TOKEN[params["model"]]/2:
                         break
                     else:
