@@ -78,11 +78,15 @@ app.add_middleware(
 )
 
 def authenticate_user(username: str, password: str) -> UserOut:
-    user = lapi.get_user(username)
+    user = lapi.get_user(username)    # check index db
     if user is None:
         return None
     if password != "" and not verify_password(password, user.hashed_password):
         # if password is empty string, this is a temp user. "" not equal to None.
+        return None
+    # check if index db record exists. If not, the user has been deleted.
+    user_in_db = lapi.get_user_in_db(user)
+    if user_in_db is None:
         return None
     return UserOut(**user.model_dump())
 
@@ -177,6 +181,13 @@ async def update_user_by_obj(user: UserIn, user_in_db: Annotated[UserInDB, Depen
     if user.password:
         user_in_db.hashed_password = get_password_hash(user.password)  # save hashed password in DB
     return lapi.update_user(user_in_db).model_dump()
+
+# delete current user, return {id: user_id}
+@app.delete(BASE_ROUTE + "/users")
+async def delete_user(user_in_db: Annotated[UserInDB, Depends(get_current_user)]):
+    ret = lapi.delete_user(user_in_db)
+    print("delete=", ret)
+    return ret
 
 # get current product IDs
 @app.get(BASE_ROUTE + "/productids")

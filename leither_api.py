@@ -139,7 +139,7 @@ class LeitherAPI:
 
         # add new user to index database in Main Mimei
         mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
-        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.id.upper(), user_str)    # user.id as index to user object in main DB.
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user.id.upper(), user_str)    # user.id always as index to user object in main DB.
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         self.client.MiMeiPublish(self.sid, "", self.mid)
         print("temp user created:", user)
@@ -150,53 +150,97 @@ class LeitherAPI:
     def register_in_db(self, user_in: UserInDB) -> UserOut:
         mid = self.create_user_mm(user_in.username)
         mmsid = self.client.MMOpen(self.get_sid(), mid, "cur")
-        user_in_db = self.client.MFGetObject(mmsid)
+        user_in_mm = self.client.MFGetObject(mmsid)
 
-        if user_in_db:
-            # the created mid is not empty, the username is taken.
-            print("username is taken", user_in_db)
+        if user_in_mm:
+            # the mimei file is not empty, the username is taken.
+            print("username is taken", user_in_mm)
             return None
         else:
-            # the user already has a mid, which is generated wiht its temp name, aka user.id
-            mmsid_of_db = self.client.MMOpen(self.sid, self.mid, "last")
-            user_in_db = UserInDB(**json.loads(self.client.Hget(mmsid_of_db, USER_ACCOUNT_KEY, user_in.id)))
-            # open incumbent account to get user mid, which might points to temp mm or previous mimei
-            mmsid_in_db = self.client.MMOpen(self.sid, user_in_db.mid, "last")
-            user_in_mm = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
-            
-            # Update existing mimei data with registration information provided by user.
-            user_in_mm.username = user_in.username
-            user_in_mm.hashed_password = user_in.hashed_password
-            user_in_mm.family_name = user_in.family_name
-            user_in_mm.given_name = user_in.given_name
-            user_in_mm.email = user_in.email
+            # the mimei file is empty, let's check index mimei db, which is indexed by user.id
+            user_in_db = self.client.Hget(self.client.MMOpen(self.sid, self.mid, "last"), USER_ACCOUNT_KEY, user_in.id)
+            print("user in db", user_in_db)
+            if not user_in_db:
+                # no record of user_in.id in index db too and no mimei file exists, create one.
+                user_in.dollar_balance = self.init_balance     # singup bonus offered for free trial.
+                user_in.token_count = 0
+                user_in.monthly_usage = {datetime.now().month: 0}      # to enforce the spending cap of an user.
+                user_in.dollar_usage = 0
+                user_in.creation_date = time.time()    # required by Apple to know how long the user has been.
+                user_in.timestamp = user_in.creation_date     # updated each time the user used service.
+                user_in.mid = mid
+                self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
+                self.client.MMBackup(self.sid, mid, "", "delRef=true")
 
-            # new Mimei id that is genereated with real username, so the mimei can be found with username quickly.
-            user_in_mm.mid = mid
-            print("After copy. user in db:", user_in_mm)
+                mmsid_db = self.client.MMOpen(self.sid, self.mid, "cur")
+                self.client.Hset(mmsid_db, USER_ACCOUNT_KEY, user_in.id, json.dumps(user_in.model_dump()))
+                self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+                self.client.MMAddRef(self.sid, self.mid, mid)
+                self.client.MiMeiPublish(self.sid, "", self.mid)
+                return UserOut(**user_in.model_dump())
 
-            user_str = json.dumps(user_in_mm.model_dump())
-            self.client.MFSetObject(mmsid, user_str)
-            self.client.MMBackup(self.sid, mid, "", "delRef=true")
-            self.client.MMAddRef(self.sid, self.mid, mid)
+            else:
+                # Mimei create from given username not exists, but there is record in index db.
+                # Happens when user registered with a new username. Overwrite the previous one in index db.
+                user_in_db = UserInDB(**json.loads(user_in_db))
+                
+                # open incumbent account to get user mid, which might points to temp mm or previous mimei
+                mmsid_in_db = self.client.MMOpen(self.sid, user_in_db.mid, "last")
+                user_in_mm = UserInDB(**json.loads(self.client.MFGetObject(mmsid_in_db)))
+                
+                # Update existing mimei data with registration information provided by user.
+                user_in_mm.username = user_in.username
+                user_in_mm.hashed_password = user_in.hashed_password
+                user_in_mm.family_name = user_in.family_name
+                user_in_mm.given_name = user_in.given_name
+                user_in_mm.email = user_in.email
 
-            # remove reference to temp account mimei.
-            self.client.MMDelRef(self.sid, self.mid, user_in.mid)
+                # new Mimei id that is genereated with real username, so the mimei can be found with username quickly.
+                user_in_mm.mid = mid
+                print("After copy. user in db:", user_in_mm)
 
-            # update index Mimei db
-            mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
-            self.client.Hset(mmsid, USER_ACCOUNT_KEY, user_in_db.id, user_str)     # update temp user account with registered one.
-            self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
-            self.client.MiMeiPublish(self.sid, "", self.mid)
+                # create new mimei for the incoming user object
+                user_str = json.dumps(user_in_mm.model_dump())
+                self.client.MFSetObject(mmsid, user_str)
+                self.client.MMBackup(self.sid, mid, "", "delRef=true")
+                self.client.MMAddRef(self.sid, self.mid, mid)
 
-            self.client.MMDelVers(self.sid, user_in_db.mid)
-            return UserOut(**user_in_db.model_dump())
+                # remove reference to temp account mimei.
+                self.client.MMDelRef(self.sid, self.mid, user_in_db.mid)
+
+                # update index Mimei db
+                mmsid_db = self.client.MMOpen(self.sid, self.mid, "cur")
+                self.client.Hset(mmsid_db, USER_ACCOUNT_KEY, user_in_db.id, user_str)     # update temp user account with registered one.
+                self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+                self.client.MiMeiPublish(self.sid, "", self.mid)
+                self.client.MMDelVers(self.sid, user_in_db.mid)     # delete old mm created with user id
+
+                return UserOut(**user_in_mm.model_dump())
         
     def update_user(self, user_in: UserInDB) -> UserOut:
         mmsid = self.client.MMOpen(self.get_sid(), user_in.mid, "cur")
         self.client.MFSetObject(mmsid, json.dumps(user_in.model_dump()))
         self.client.MMBackup(self.sid, user_in.mid, "", "delRef=true")
+
+        mmsid = self.client.MMOpen(self.sid, self.mid, "cur")
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user_in.id, json.dumps(user_in.model_dump()))     # update temp user account with registered one.
+        self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+        self.client.MiMeiPublish(self.sid, "", self.mid)
+
         return UserOut(**user_in.model_dump())
+    
+    def delete_user(self, user_in: UserInDB) -> dict:
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
+        user_in = UserInDB(**json.loads(self.client.Hget(mmsid, USER_ACCOUNT_KEY, user_in.id)))
+        user_in.disabled = True
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "cur")
+        self.client.Hset(mmsid, USER_ACCOUNT_KEY, user_in.id, json.dumps(user_in.model_dump()))     # remove user from index db
+        self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
+        self.client.MiMeiPublish(self.sid, "", self.mid)
+        # self.client.MMDelRef(self.sid, self.mid, user_in.mid)     # remove reference to mimei
+
+        #keep the mimei created from username, in case use re-register with the same username.
+        return {"id": user_in.id}
 
     # After registration, username will be different from its identifier.
     def get_user(self, username) -> UserInDB:
@@ -207,9 +251,21 @@ class LeitherAPI:
             # print("get_user() found: ", user_mid)
             return UserInDB(**json.loads(user))
         else:
-            print("In get_user() user not found", username)
+            print("get_user() cannot found", username)
             return None
 
+    # check user record in index db
+    def get_user_in_db(self, user: UserInDB) -> UserInDB:
+        mmsid = self.client.MMOpen(self.get_sid(), self.mid, "last")
+        r = self.client.Hget(mmsid, USER_ACCOUNT_KEY, user.id)
+        if not r:
+            return None
+        else:
+            user_in_db = UserInDB(**json.loads(r))
+            if user_in_db.disabled:
+                return None
+            return user_in_db
+        
     def cash_coupon(self, user_in: UserInDB, coupon: str):
         mmsid = self.client.MMOpen(self.get_sid(), self.mid, "cur")
         coupon_in_db = self.client.Hget(mmsid, MIMEI_COUPON_KEY, coupon)
@@ -228,9 +284,6 @@ class LeitherAPI:
         self.client.MMBackup(self.sid, self.mid, "", "delRef=true")
         self.client.MiMeiPublish(self.sid, "", self.mid)
         return True
-
-    def delete_user(self, username: str):
-        pass
 
     def bookkeeping(self, total_cost: float, token_cost: int, user_in_db: UserInDB):
         # update monthly expense. Times the cost efficiency to include profit.

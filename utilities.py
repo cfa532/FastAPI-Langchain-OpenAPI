@@ -68,6 +68,7 @@ class UserInDB(UserOut):
     accured_total: float = 0.0                      # accumulated revenue, consumables and subscriptions.
     purchase_history: Union[list, None] = None      # purchase history. {productID, purchase date, amount, balance} 
                                                     # or {start date, end date, monthly/yearly, price}
+    disabled: Union[bool, None] = False             # disabled by admin
 
 class ConnectionManager:
     def __init__(self):
