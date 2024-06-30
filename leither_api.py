@@ -29,10 +29,10 @@ class LeitherAPI:
             self.sid_time = time.time()
         return self.sid
 
-    def get_ppt(self):
+    def get_ppt(self, host_id):
         # user's Leither mode ip not used for now.
         print(self.client.GetVar("", "ver"))
-        return self.client.GetVarByContext("", "context_ppt")   # return PPT
+        return self.client.RunMApp("main", {"nodeid":host_id, "aid":"ZJZoWhGBcQNnX0vCw60t7R7C3q3","ver":"last"})
     
     def register_in_db(self, user: UserInDB):
         print(user)
@@ -50,7 +50,6 @@ class LeitherAPI:
             return None
     
     def register_cur_node(self, node_id, mid, user):
-        # return error if any
         self.client.MMSetRight(self.get_sid(), mid, node_id, 0xf)
         self.client.MiMeiPublish(self.sid, "", mid)
 

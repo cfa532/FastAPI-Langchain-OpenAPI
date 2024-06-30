@@ -114,11 +114,11 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     token = Token(access_token=access_token, token_type="Bearer")
 
     # set mimei rights on the given host id.
-    lapi.register_cur_node(form_data.client_id, user.mid, user)
-    
+    # lapi.register_cur_node(form_data.client_id, user.mid, user)
+    ppt = lapi.get_ppt(form_data.client_id)
     user_out = user.model_dump(exclude=["hashed_password"])
-    print(user_out)
-    return {"token": token, "user": user_out, "ppt": lapi.get_ppt()}    #pass user's Leither node IP
+    print(user_out, ppt)
+    return {"token": token, "user": user_out, "ppt": ppt}    #pass user's Leither node IP
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
