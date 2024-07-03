@@ -32,7 +32,7 @@ class LeitherAPI:
     def get_ppt(self, host_id):
         # user's Leither mode ip not used for now.
         print(self.client.GetVar("", "ver"))
-        return self.client.RunMApp("main", {"nodeid":host_id, "aid":"ZJZoWhGBcQNnX0vCw60t7R7C3q3","ver":"last"})
+        return self.client.RunMApp("main", {"nodeid":host_id, "aid":"ZJZoWhGBcQNnX0vCw60t7R7C3q3", "ver":"last"})
     
     def register_in_db(self, user: UserInDB):
         print(user)
