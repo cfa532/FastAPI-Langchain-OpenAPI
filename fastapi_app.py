@@ -28,7 +28,7 @@ MAX_TOKEN = {
 }
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 480   # expire in 8 hrs
+ACCESS_TOKEN_EXPIRE_MINUTES = 480*3000   # expire in 8 hrs
 BASE_ROUTE = "/aichat"
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
