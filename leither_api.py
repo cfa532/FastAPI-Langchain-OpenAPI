@@ -21,6 +21,7 @@ class LeitherAPI:
         self.sid_time = time.time()
 
     def get_sid(self):
+        # Update session id every hour, otherwise it may expire.
         if time.time() - self.sid_time > 3600:
             self.ppt = self.client.GetVarByContext("", "context_ppt")
             self.api = self.client.Login(self.ppt)
@@ -32,6 +33,7 @@ class LeitherAPI:
     def get_ppt(self, host_id):
         # user's Leither mode ip not used for now.
         print(self.client.GetVar("", "ver"))
+        # call backend function main to get signed PPT for given host_id
         return self.client.RunMApp("main", {"nodeid":host_id, "aid":"ZJZoWhGBcQNnX0vCw60t7R7C3q3", "ver":"last"})
     
     def register_in_db(self, user: UserInDB):
