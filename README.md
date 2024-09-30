@@ -2,22 +2,12 @@
 The content in Main branch is way outdated. The two meaningful branches are Secretari and AI-Chat.
 
 ## Secretari
-FastAPI for authentication and authroization, Langchain for AI interface. This one is for 
+FastAPI Python backend for authentication and authroization, Langchain for AI interface. This one is for iOS application Bounny. It handles anonymous service, user registration and authentication.
 
- **You can change the `_ALGORITHMS` constant to whatever you want to query other topics on Wikipedia.**
+More importantly, there are python code that handles Serverside messaging from Applestore server. All user data and application data are stored in Leither database.
 
-From there on you can simply run `wikipedia.py` which generates the text file which will be vectorized and stored in the database.
-You need to use the name of the created textfile in the `ask_wikipedia.py` file.
-
-Now you can run `ask_wikipedia.py`.
-
-**Simply change the `print(genie.ask("Can you tell me the formula for Linear Regression?"))` in the `ask_wikipedia.py` file to whatever question you want to ask.**
-
-
-## Video
-
-I also created a video to demonstrate the demo. 
-[![Screenshot](https://i.ibb.co/LCzVkff/embedding-vid.jpg)](https://youtu.be/ytt4D5br6Fk)
+## AI-Chat
+FastAPI and Python backend for a user friendly OpenAI chatbox. The python part deliver user queries OpenAI. Langchain is used to wrap OpenAI. It calculates token usage correctly.
 
 1. OCR设置
 输出环境变量
