@@ -6,3 +6,6 @@ websockets
 hprose
 python-jose
 fastapi
+tiktoken
+pytesseract
+pdf2image

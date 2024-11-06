@@ -2,11 +2,13 @@ import json, sys, time, os, tiktoken
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
+from fastapi import File, Form, UploadFile, Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketState
 from jose import jwt, JWTError
+from ocr import load_pdf
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
@@ -95,7 +97,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 
 @app.post(BASE_ROUTE+"/token")
 async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    print("form data", form_data.username, form_data.client_id)
+    print("form data:", form_data.username, form_data.client_id)
 
     # authenticate user
     user = lapi.get_user(form_data.username)
@@ -106,6 +108,7 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    print("verified user:", user)
     # create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -114,11 +117,8 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     token = Token(access_token=access_token, token_type="Bearer")
 
     # set mimei rights on the given host id.
-    # lapi.register_cur_node(form_data.client_id, user.mid, user)
-    ppt = lapi.get_ppt(form_data.client_id)
     user_out = user.model_dump(exclude=["hashed_password"])
-    print(user_out, ppt)
-    return {"token": token, "user": user_out, "ppt": ppt}    #pass user's Leither node IP
+    return {"token": token, "user": user_out}    #pass user's Leither node IP
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
@@ -170,6 +170,41 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
 async def get():
     return HTMLResponse("Hello world.")
 
+@app.post(BASE_ROUTE+"/uploadfile/")
+async def upload_file(
+    file: UploadFile = File(...),
+    message: str = Form(...)
+):
+    # Read the file content
+    print(file)
+    pdf = load_pdf(await file.read())
+
+    event = json.loads(message)
+    print(event)
+    params = event["parameters"]
+    CHAT_LLM = ChatOpenAI(
+        temperature=float(params["temperature"]),
+        model=params["model"],
+        streaming=True,
+        verbose=True
+    )
+    query = """
+        The following is a friendly conversation between a human and an AI. 
+        The AI is talkative and provides lots of specific details from its context.
+        If the AI does not know the answer to a question, 
+        it truthfully says it does not know.\nCurrent conversation:\n
+    """
+    query += "Human: "+event["input"]["query"]+ "\n" +pdf+ "\nAI:"
+    chain =CHAT_LLM
+    resp = ""
+    print(query)
+    return query
+
+    async for chunk in chain.astream(query):
+        print(chunk.content, end="|", flush=True)    # chunk size can be big
+        resp += chunk.content
+    return resp
+
 @app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     await connectionManager.connect(websocket)
@@ -211,7 +246,12 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
             # query = event["input"]["query"]
             # memory = ConversationBufferMemory(return_messages=False)
-            query = "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.\nCurrent conversation:\n"
+            query = """
+                The following is a friendly conversation between a human and an AI. 
+                The AI is talkative and provides lots of specific details from its context.
+                If the AI does not know the answer to a question, 
+                it truthfully says it does not know.\nCurrent conversation:\n
+            """
             if event["input"].get("history"):
                 # user server history if history key is not present in user request
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
@@ -224,6 +264,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                         query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
             query += "Human: "+event["input"]["query"]+"\nAI:"
             print(query)
+            continue
+
             start_time = time.time()
             with get_cost_tracker_callback(params["model"]) as cb:
                 # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
@@ -254,10 +296,11 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     except HTTPException as e:
         print("HTTPException", e)
         sys.stdout.flush()
-        # connectionManager.disconnect(websocket)
-    # finally:
-        # if websocket.client_state == WebSocketState.CONNECTED:
-            # await websocket.close()
+        connectionManager.disconnect(websocket)
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
+
 # if __name__ == "__main__":
 #     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8506)
+#     uvicorn.run(app, host="0.0.0.0", port=8000)
