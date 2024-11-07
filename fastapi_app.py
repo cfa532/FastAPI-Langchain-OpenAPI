@@ -9,6 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 from jose import jwt, JWTError
 from ocr import load_pdf
+import magic
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
@@ -31,7 +32,7 @@ MAX_TOKEN = {
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480*3000   # expire in 8 hrs
-BASE_ROUTE = "/aichat"
+BASE_ROUTE = "/guokai"
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Could not validate credentials",
@@ -223,16 +224,38 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             raise WebSocketDisconnect
         while True:
             message = await websocket.receive_text()
-            event = json.loads(message)
-            print(event)
-            # await websocket.send_text(json.dumps({
-            #         "type": "result",
-            #         "answer": "Message received. " + event["input"]["query"], 
-            #         "tokens": "111",
-            #         "cost": "0.01"}))
-            # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
-            # continue
+            event = json.loads(message)            
             params = event["parameters"]
+            userQuery = event["input"]["query"]
+
+            for i in range(event["input"]["numOfAttachments"]):
+                file_data = await websocket.receive_bytes()
+                mime = magic.Magic(mime=True)
+                file_type = mime.from_buffer(file_data)
+                print(f'Detected file type: {file_type}')
+
+                hlen = len(tiktoken_encoder.encode(userQuery))
+                if 'text' in file_type:
+                    # append file to user query
+                    file_data = file_data.decode('utf-8')
+                    encodedFile = tiktoken_encoder.encode(file_data)
+                    if hlen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
+                        userQuery += "\n" + file_data
+                        hlen += len(encodedFile)
+                else:
+                    # assume it is pdf for now, default English
+                    txt = load_pdf(file_data, "eng")
+                    userQuery += "\n" + txt
+                    hlen += len(txt)
+
+            await websocket.send_text(json.dumps({
+                    "type": "result",
+                    "answer": "Message received. " + userQuery, 
+                    "tokens": "111",
+                    "cost": "0.01"}))
+            lapi.bookkeeping("gpt-4o", 0.014, 111, user)
+            continue
+
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
                     temperature=float(params["temperature"]),
@@ -253,18 +276,15 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 it truthfully says it does not know.\nCurrent conversation:\n
             """
             if event["input"].get("history"):
-                # user server history if history key is not present in user request
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
-                hlen = 0
                 for c in event["input"]["history"]:
                     hlen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
-                    if hlen > MAX_TOKEN[params["model"]]/2:
+                    if hlen > MAX_TOKEN[params["model"]]*2/3:
                         break
                     else:
                         query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
-            query += "Human: "+event["input"]["query"]+"\nAI:"
+            query += "Human: " + userQuery + "\nAI:"
             print(query)
-            continue
 
             start_time = time.time()
             with get_cost_tracker_callback(params["model"]) as cb:

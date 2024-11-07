@@ -3,10 +3,9 @@ from tempfile import TemporaryDirectory, NamedTemporaryFile
 import pytesseract, os
 from pdf2image import convert_from_bytes, convert_from_path
 from PIL import Image
-LANG="eng"
 
 # convert PDF page to image, then run OCR to recognize Simplified Chinese
-def load_pdf(pdf):
+def load_pdf(pdf, lang="eng"):
     # extract text from a pdf BYTEs object
     os.environ["TESSDATA_PREFIX"]= os.getcwd() + "/tessdata"
     text = ""
@@ -17,7 +16,7 @@ def load_pdf(pdf):
         for num, page in enumerate(pdf_pages, start=1):
             img = f"{tempdir}/page_{num:03}.jpg"
             page.save(img, "JPEG")
-            text += str(pytesseract.image_to_string(Image.open(img), lang=LANG))
+            text += str(pytesseract.image_to_string(Image.open(img), lang=lang))
         text = text.replace("-\n", "").replace(" ", "")
         return text
 
@@ -35,5 +34,5 @@ def load_doc(doc: bytes):
     return text
 """
 
-def load_img(img):
-   return str(pytesseract.image_to_string(Image.open(img), lang=LANG))
+def load_img(img, lang="eng"):
+   return str(pytesseract.image_to_string(Image.open(img), lang=lang))

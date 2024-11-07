@@ -10,3 +10,4 @@ tiktoken
 pytesseract
 pdf2image
 poppler-utils
+python-magic
