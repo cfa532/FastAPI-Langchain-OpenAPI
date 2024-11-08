@@ -72,7 +72,6 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-# Create a JWT access token with an expiration time
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -83,7 +82,6 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-# Decode the JWT token to get the current user
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -134,7 +132,6 @@ async def register_user(user: UserIn):
         detail="Username exists",
         headers={"WWW-Authenticate": "Bearer"})
 
-# Get user by ID, only accessible by admin or the user themselves
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != id:
@@ -142,14 +139,12 @@ async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_c
     return lapi.get_user(id)
     # return current_user
 
-# Get all users, only accessible by admin
 @app.get(BASE_ROUTE+"/users/all", response_model=List[UserOut])
 async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin":
         return [UserOut(**current_user.model_dump())] 
     return lapi.get_users()
 
-# Delete user by username, only accessible by admin or the user themselves
 @app.delete(BASE_ROUTE+"/users/{username}")
 async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != username:
@@ -172,17 +167,15 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
     user_in_db = lapi.update_user(UserInDB(**user_in_db))
     return UserOut(**user_in_db.model_dump())
 
-# Basic endpoint returning a simple HTML response
 @app.get(BASE_ROUTE+"/")
 async def get():
     return HTMLResponse("Hello world.")
 
-# WebSocket endpoint for real-time communication
 @app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     await connectionManager.connect(websocket)
     try:
-        # Decode the token to authenticate the user
+        # token = websocket.query_params.get("token")
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -199,6 +192,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             event = json.loads(message)            
             params = event["parameters"]
             userQuery = event["input"]["query"]
+            encodedQuerLen = len(tiktoken_encoder.encode(userQuery))
 
             for i in range(event["input"]["numOfAttachments"]):
                 file_data = await websocket.receive_bytes()
@@ -206,19 +200,18 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 file_type = mime.from_buffer(file_data)
                 print(f'Detected file type: {file_type}')
 
-                hlen = len(tiktoken_encoder.encode(userQuery))
                 if 'text' in file_type:
                     # append file to user query
                     file_data = file_data.decode('utf-8')
                     encodedFile = tiktoken_encoder.encode(file_data)
-                    if hlen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
+                    if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
                         userQuery += "\n" + file_data
-                        hlen += len(encodedFile)
+                        encodedQuerLen += len(encodedFile)
                 else:
                     # assume it is pdf for now, default English
                     txt = load_pdf(file_data, "eng")
                     userQuery += "\n" + txt
-                    hlen += len(txt)
+                    encodedQuerLen += len(txt)
 
             # await websocket.send_text(json.dumps({
             #         "type": "result",
@@ -250,8 +243,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             if event["input"].get("history"):
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
                 for c in event["input"]["history"]:
-                    hlen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
-                    if hlen > MAX_TOKEN[params["model"]]*2/3:
+                    encodedQuerLen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
+                    if encodedQuerLen > MAX_TOKEN[params["model"]]*2/3:
                         break
                     else:
                         query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
