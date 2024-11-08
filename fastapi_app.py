@@ -2,11 +2,14 @@ import json, sys, time, os, tiktoken
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
-from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
+from fastapi import File, Form, UploadFile, Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.websockets import WebSocketState
 from jose import jwt, JWTError
+from ocr import load_pdf
+import magic, logging
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
@@ -29,7 +32,7 @@ MAX_TOKEN = {
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480*3000   # expire in 8 hrs
-BASE_ROUTE = "/aichat"
+BASE_ROUTE = "/guokai"
 credentials_exception = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Could not validate credentials",
@@ -95,7 +98,7 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
 
 @app.post(BASE_ROUTE+"/token")
 async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    print("form data", form_data.username, form_data.client_id)
+    print("form data:", form_data.username, form_data.client_id)
 
     # authenticate user
     user = lapi.get_user(form_data.username)
@@ -106,6 +109,7 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
             headers={"WWW-Authenticate": "Bearer"},
         )
     
+    print("verified user:", user)
     # create access token
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -114,11 +118,8 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     token = Token(access_token=access_token, token_type="Bearer")
 
     # set mimei rights on the given host id.
-    # lapi.register_cur_node(form_data.client_id, user.mid, user)
-    ppt = lapi.get_ppt(form_data.client_id)
     user_out = user.model_dump(exclude=["hashed_password"])
-    print(user_out, ppt)
-    return {"token": token, "user": user_out, "ppt": ppt}    #pass user's Leither node IP
+    return {"token": token, "user": user_out}    #pass user's Leither node IP
 
 @app.post(BASE_ROUTE+"/users/register")
 async def register_user(user: UserIn):
@@ -188,16 +189,38 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             raise WebSocketDisconnect
         while True:
             message = await websocket.receive_text()
-            event = json.loads(message)
-            print(event)
+            event = json.loads(message)            
+            params = event["parameters"]
+            userQuery = event["input"]["query"]
+            encodedQuerLen = len(tiktoken_encoder.encode(userQuery))
+
+            for i in range(event["input"]["numOfAttachments"]):
+                file_data = await websocket.receive_bytes()
+                mime = magic.Magic(mime=True)
+                file_type = mime.from_buffer(file_data)
+                print(f'Detected file type: {file_type}')
+
+                if 'text' in file_type:
+                    # append file to user query
+                    file_data = file_data.decode('utf-8')
+                    encodedFile = tiktoken_encoder.encode(file_data)
+                    if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
+                        userQuery += "\n" + file_data
+                        encodedQuerLen += len(encodedFile)
+                else:
+                    # assume it is pdf for now, default English
+                    txt = load_pdf(file_data, "eng")
+                    userQuery += "\n" + txt
+                    encodedQuerLen += len(txt)
+
             # await websocket.send_text(json.dumps({
             #         "type": "result",
-            #         "answer": "Message received. " + event["input"]["query"], 
+            #         "answer": "Message received. " + userQuery, 
             #         "tokens": "111",
             #         "cost": "0.01"}))
             # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
             # continue
-            params = event["parameters"]
+
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
                     temperature=float(params["temperature"]),
@@ -211,19 +234,23 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
             # query = event["input"]["query"]
             # memory = ConversationBufferMemory(return_messages=False)
-            query = "The following is a friendly conversation between a human and an AI. The AI is talkative and provides lots of specific details from its context. If the AI does not know the answer to a question, it truthfully says it does not know.\nCurrent conversation:\n"
+            query = """
+                The following is a friendly conversation between a human and an AI. 
+                The AI is talkative and provides lots of specific details from its context.
+                If the AI does not know the answer to a question, 
+                it truthfully says it does not know.\nCurrent conversation:\n
+            """
             if event["input"].get("history"):
-                # user server history if history key is not present in user request
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
-                hlen = 0
                 for c in event["input"]["history"]:
-                    hlen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
-                    if hlen > MAX_TOKEN[params["model"]]/2:
+                    encodedQuerLen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
+                    if encodedQuerLen > MAX_TOKEN[params["model"]]*2/3:
                         break
                     else:
                         query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
-            query += "Human: "+event["input"]["query"]+"\nAI:"
+            query += "Human: " + userQuery + "\nAI:"
             print(query)
+
             start_time = time.time()
             with get_cost_tracker_callback(params["model"]) as cb:
                 # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
@@ -244,20 +271,18 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect as e:
-        print("WS except", e)
-        sys.stdout.flush()
+        logging.error("WebSocketDisconnect: %s", e)
         connectionManager.disconnect(websocket)
     except JWTError as e:
-        print("JWTError", e)
-        sys.stdout.flush()
+        logging.error("JWTError: %s", e)
         await websocket.send_text(json.dumps({"type": "error", "error": "Invalid token"}))
     except HTTPException as e:
-        print("HTTPException", e)
-        sys.stdout.flush()
-        # connectionManager.disconnect(websocket)
-    # finally:
-        # if websocket.client_state == WebSocketState.CONNECTED:
-            # await websocket.close()
+        logging.error("HTTPException: %s", e)
+        connectionManager.disconnect(websocket)
+    finally:
+        if websocket.client_state == WebSocketState.CONNECTED:
+            await websocket.close()
+
 # if __name__ == "__main__":
 #     import uvicorn
-#     uvicorn.run(app, host="0.0.0.0", port=8506)
+#     uvicorn.run(app, host="0.0.0.0", port=8000)

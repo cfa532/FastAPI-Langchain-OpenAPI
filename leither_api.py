@@ -1,20 +1,22 @@
 import hprose, json, time
 from utilities import UserInDB, is_ipv6, is_local_network_ip
 
-USER_ACCOUNT_KEY = "AICHAT_APP_USER_ACCOUNT_KEY"
+USER_ACCOUNT_KEY = "USER_ACCOUNT_KEY"
 GPT_3_Tokens = 1000000      # bonus tokens upon installation
 GPT_4_Turbo_Tokens = 10000
-LEITHER_SERVER_CLIENT = hprose.HttpClient("http://localhost:8081/webapi/")
+APP_ID = "Guokai Future"
+APP_EXT = "Backend"
+APP_MARK = "Guokai contracts"
 
 class LeitherAPI:
     def __init__(self):
-        self.client = LEITHER_SERVER_CLIENT
+        self.client = hprose.HttpClient("http://localhost:8081/webapi/")
         print(self.client.GetVar("", "ver"))
         self.ppt = self.client.GetVarByContext("", "context_ppt")
         self.api = self.client.Login(self.ppt)
         self.sid = self.api.sid
         self.uid = self.api.uid
-        self.mid = self.client.MMCreate(self.sid, "FmKK37e1T0oGaQJXRMcMjyrmoxa", "app", "aichat index db", 2, 0x07276705)
+        self.mid = self.client.MMCreate(self.sid, APP_ID, APP_EXT, APP_MARK, 2, 0x07276705)
         print("sid  ", self.api.sid)
         print("uid  ", self.api.uid)
         print("mid  ", self.mid)
@@ -29,18 +31,12 @@ class LeitherAPI:
             self.uid = self.api.uid
             self.sid_time = time.time()
         return self.sid
-
-    def get_ppt(self, host_id):
-        # user's Leither mode ip not used for now.
-        print(self.client.GetVar("", "ver"))
-        # call backend function main to get signed PPT for given host_id
-        return self.client.RunMApp("main", {"nodeid":host_id, "aid":"ZJZoWhGBcQNnX0vCw60t7R7C3q3", "ver":"last"})
     
     def register_in_db(self, user: UserInDB):
         print(user)
         if not self.get_user(user.username):
             # create a mimei for the user and publish it onto web
-            user.mid = self.client.MMCreate(self.get_sid(), "FmKK37e1T0oGaQJXRMcMjyrmoxa", "user", user.username, 2, 0x07276705)
+            user.mid = self.client.MMCreate(self.get_sid(), APP_ID, APP_EXT, user.username, 2, 0x07276705)
             self.client.MiMeiPublish(self.sid, "", user.mid)
 
             mmsid_cur = self.client.MMOpen(self.get_sid(), self.mid, "cur")

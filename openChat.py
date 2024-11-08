@@ -19,7 +19,8 @@ load_dotenv()
 
 MAX_TOKEN = {
     "gpt-4": 4096,
-    "gpt-4-turbo": 8192
+    "gpt-4-turbo": 8192,
+    "o1-mini": 8192,
 }
 
 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
