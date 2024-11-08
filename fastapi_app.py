@@ -9,7 +9,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 from jose import jwt, JWTError
 from ocr import load_pdf
-import magic
+import magic, logging
 
 from pydantic import BaseModel
 from langchain_openai import ChatOpenAI
@@ -72,6 +72,7 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
+# Create a JWT access token with an expiration time
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
     to_encode = data.copy()
     if expires_delta:
@@ -82,6 +83,7 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
+# Decode the JWT token to get the current user
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
@@ -132,6 +134,7 @@ async def register_user(user: UserIn):
         detail="Username exists",
         headers={"WWW-Authenticate": "Bearer"})
 
+# Get user by ID, only accessible by admin or the user themselves
 @app.get(BASE_ROUTE+"/users", response_model=UserOut)
 async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != id:
@@ -139,12 +142,14 @@ async def get_user_by_id(id: str, current_user: Annotated[UserOut, Depends(get_c
     return lapi.get_user(id)
     # return current_user
 
+# Get all users, only accessible by admin
 @app.get(BASE_ROUTE+"/users/all", response_model=List[UserOut])
 async def get_all_users(current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin":
         return [UserOut(**current_user.model_dump())] 
     return lapi.get_users()
 
+# Delete user by username, only accessible by admin or the user themselves
 @app.delete(BASE_ROUTE+"/users/{username}")
 async def delete_user_by_id(username: str, current_user: Annotated[UserOut, Depends(get_current_user)]):
     if current_user.role != "admin" and current_user.username != username:
@@ -167,50 +172,17 @@ async def update_user_by_obj(user: UserIn, current_user: Annotated[UserOut, Depe
     user_in_db = lapi.update_user(UserInDB(**user_in_db))
     return UserOut(**user_in_db.model_dump())
 
+# Basic endpoint returning a simple HTML response
 @app.get(BASE_ROUTE+"/")
 async def get():
     return HTMLResponse("Hello world.")
 
-@app.post(BASE_ROUTE+"/uploadfile/")
-async def upload_file(
-    file: UploadFile = File(...),
-    message: str = Form(...)
-):
-    # Read the file content
-    print(file)
-    pdf = load_pdf(await file.read())
-
-    event = json.loads(message)
-    print(event)
-    params = event["parameters"]
-    CHAT_LLM = ChatOpenAI(
-        temperature=float(params["temperature"]),
-        model=params["model"],
-        streaming=True,
-        verbose=True
-    )
-    query = """
-        The following is a friendly conversation between a human and an AI. 
-        The AI is talkative and provides lots of specific details from its context.
-        If the AI does not know the answer to a question, 
-        it truthfully says it does not know.\nCurrent conversation:\n
-    """
-    query += "Human: "+event["input"]["query"]+ "\n" +pdf+ "\nAI:"
-    chain =CHAT_LLM
-    resp = ""
-    print(query)
-    return query
-
-    async for chunk in chain.astream(query):
-        print(chunk.content, end="|", flush=True)    # chunk size can be big
-        resp += chunk.content
-    return resp
-
+# WebSocket endpoint for real-time communication
 @app.websocket(BASE_ROUTE+"/ws/")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
     await connectionManager.connect(websocket)
     try:
-        # token = websocket.query_params.get("token")
+        # Decode the token to authenticate the user
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -248,13 +220,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     userQuery += "\n" + txt
                     hlen += len(txt)
 
-            await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": "Message received. " + userQuery, 
-                    "tokens": "111",
-                    "cost": "0.01"}))
-            lapi.bookkeeping("gpt-4o", 0.014, 111, user)
-            continue
+            # await websocket.send_text(json.dumps({
+            #         "type": "result",
+            #         "answer": "Message received. " + userQuery, 
+            #         "tokens": "111",
+            #         "cost": "0.01"}))
+            # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
+            # continue
 
             if params["llm"] == "openai":
                 CHAT_LLM = ChatOpenAI(
@@ -306,16 +278,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)
 
     except WebSocketDisconnect as e:
-        print("WS except", e)
-        sys.stdout.flush()
+        logging.error("WebSocketDisconnect: %s", e)
         connectionManager.disconnect(websocket)
     except JWTError as e:
-        print("JWTError", e)
-        sys.stdout.flush()
+        logging.error("JWTError: %s", e)
         await websocket.send_text(json.dumps({"type": "error", "error": "Invalid token"}))
     except HTTPException as e:
-        print("HTTPException", e)
-        sys.stdout.flush()
+        logging.error("HTTPException: %s", e)
         connectionManager.disconnect(websocket)
     finally:
         if websocket.client_state == WebSocketState.CONNECTED:
