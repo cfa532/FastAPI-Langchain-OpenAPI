@@ -234,12 +234,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             # CHAT_LLM.callbacks=[MyStreamingHandler()]
             # query = event["input"]["query"]
             # memory = ConversationBufferMemory(return_messages=False)
-            query = """
-                The following is a friendly conversation between a human and an AI. 
-                The AI is talkative and provides lots of specific details from its context.
-                If the AI does not know the answer to a question, 
-                it truthfully says it does not know.\nCurrent conversation:\n
-            """
+
+            query = "Human: " + userQuery + "\nAI:"
             if event["input"].get("history"):
                 # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
                 for c in event["input"]["history"]:
@@ -247,8 +243,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     if encodedQuerLen > MAX_TOKEN[params["model"]]*2/3:
                         break
                     else:
-                        query += "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n"
-            query += "Human: " + userQuery + "\nAI:"
+                        query = "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n" + query
+            query = """
+                The following is a friendly conversation between a human and an AI. 
+                The AI is talkative and provides lots of specific details from its context.
+                If the AI does not know the answer to a question, 
+                it truthfully says it does not know.\nCurrent conversation:\n
+            """ + query
             print(query)
 
             start_time = time.time()
