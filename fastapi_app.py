@@ -150,7 +150,7 @@ async def register_user(user: UserIn) -> UserOut:
 
 @app.post(BASE_ROUTE + "/users/temp")
 async def register_temp_user(user: UserIn):
-    # A temp user has assigned username, usuall the device identifier.
+    # A temp user has assigned username, usually the device identifier.
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     user = lapi.register_temp_user(UserInDB(**user_in_db))
