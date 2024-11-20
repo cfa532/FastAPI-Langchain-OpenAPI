@@ -197,7 +197,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             for i in range(event["input"]["numOfAttachments"]):
                 file_data = await websocket.receive_bytes()
                 mime = magic.Magic(mime=True)
-                file_type = mime.from_buffer(file_data)
+                file_type = mime.from_buffer(file_data).lower()
                 print(f'Detected file type: {file_type}')
 
                 if 'text' in file_type:
@@ -207,11 +207,13 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
                         userQuery += "\n" + file_data
                         encodedQuerLen += len(encodedFile)
-                else:
+                else if 'pdf' in file_type:
                     # assume it is pdf for now, default English
                     txt = load_pdf(file_data, "eng")
                     userQuery += "\n" + txt
                     encodedQuerLen += len(txt)
+                else:
+                    print("Unknown type")
 
             # await websocket.send_text(json.dumps({
             #         "type": "result",
