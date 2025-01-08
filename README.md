@@ -5,6 +5,3 @@ TESSDATA_PREFIX=/tessdata文件所在目录。其中eng数据是必须的，否�
 2. brew install poppler
 brew install tesseract
 
-Law documents may update from time to time. How to keep up with it and always have valid information in the collections.
-metadata includes { source: file name, category: 司法解释, valid: 1, timestamp: a number}
-

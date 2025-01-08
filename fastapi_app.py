@@ -1,4 +1,4 @@
-import json, sys, time, os, tiktoken
+import json, sys, os, tiktoken, magic, logging
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
@@ -9,17 +9,16 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.websockets import WebSocketState
 from jose import jwt, JWTError
 from ocr import load_pdf
-import magic, logging
 
 from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
-from dotenv import load_dotenv
-load_dotenv()
-
-from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
+
+from dotenv import load_dotenv
+load_dotenv()
+from openChat import openChat
+from geniChat import geniChat
 
 # to get a string like this run:
 # openssl rand -hex 32
@@ -28,6 +27,7 @@ MAX_TOKEN = {
     "gpt-4": 4096,
     "gpt-4-turbo": 8192,
     "gpt-4o": 8192,
+    "gemini-1.5-flash": 8192,
 }
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
@@ -194,6 +194,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             userQuery = event["input"]["query"]
             encodedQuerLen = len(tiktoken_encoder.encode(userQuery))
 
+            # process uploaded attachments
             for i in range(event["input"]["numOfAttachments"]):
                 file_data = await websocket.receive_bytes()
                 mime = magic.Magic(mime=True)
@@ -213,63 +214,16 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     userQuery += "\n" + txt
                     encodedQuerLen += len(txt)
 
-            # await websocket.send_text(json.dumps({
-            #         "type": "result",
-            #         "answer": "Message received. " + userQuery, 
-            #         "tokens": "111",
-            #         "cost": "0.01"}))
-            # lapi.bookkeeping("gpt-4o", 0.014, 111, user)
-            # continue
-
             if params["llm"] == "openai":
-                CHAT_LLM = ChatOpenAI(
-                    temperature=float(params["temperature"]),
-                    model=params["model"],
-                    streaming=True,
-                    verbose=True
-                    )     # ChatOpenAI cannot have max_token=-1
-            elif params["llm"] == "qianfan":
-                pass
-
-            # CHAT_LLM.callbacks=[MyStreamingHandler()]
-            # query = event["input"]["query"]
-            # memory = ConversationBufferMemory(return_messages=False)
-
-            query = "Human: " + userQuery + "\nAI:"
-            if event["input"].get("history"):
-                # memory.clear()  # do not use memory on serverside. Add chat history kept by client.
-                for c in event["input"]["history"]:
-                    encodedQuerLen += len(tiktoken_encoder.encode(c["Q"] + c["A"]))
-                    if encodedQuerLen > MAX_TOKEN[params["model"]]*2/3:
-                        break
-                    else:
-                        query = "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n" + query
-            query = """
-                The following is a friendly conversation between a human and an AI. 
-                The AI is talkative and provides lots of specific details from its context.
-                If the AI does not know the answer to a question, 
-                it truthfully says it does not know.\nCurrent conversation:\n
-            """ + query
-            print(query)
-
-            start_time = time.time()
-            with get_cost_tracker_callback(params["model"]) as cb:
-                # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                chain =CHAT_LLM
-                resp = ""
-                async for chunk in chain.astream(query):
-                    print(chunk.content, end="|", flush=True)    # chunk size can be big
-                    resp += chunk.content
-                    await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
-                print('\n', cb)
-                print("time diff=", (time.time() - start_time))
-                sys.stdout.flush()
-                await websocket.send_text(json.dumps({
-                    "type": "result",
-                    "answer": resp, 
-                    "tokens": cb.total_tokens,
-                    "cost": cb.total_cost}))
-                lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)
+                await openChat(websocket, event, params)
+            elif params["llm"] == "gemini":
+                # genai.configure(api_key="AIzaSyBO9DAZ-iPlACBFNz-9J1s4m08lNtVsJRQ")
+                # CHAT_LLM = ChatGoogleGenerativeAI(
+                #     model = params["model"],
+                # )
+                await geniChat(websocket, event)
+            else:
+                continue
 
     except WebSocketDisconnect as e:
         logging.error("WebSocketDisconnect: %s", e)
