@@ -11,3 +11,4 @@ pytesseract
 pdf2image
 poppler-utils
 python-magic
+langchain_google_genai

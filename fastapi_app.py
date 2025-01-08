@@ -198,7 +198,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 # CHAT_LLM = ChatGoogleGenerativeAI(
                 #     model = params["model"],
                 # )
-                await geniChat(websocket, event)
+                await geniChat(websocket, event, lapi, user)
             else:
                 continue
 

@@ -1,8 +1,7 @@
 import json, sys, os, time, logging
-from google import genai
-from google.genai import types
+import google.generativeai as genai
 from langchain_google_genai import ChatGoogleGenerativeAI
-from langchain_google_vertexai import ChatVertexAI
+# from langchain_google_vertexai import ChatVertexAI
 
 MAX_TOKEN = {
     "gemini-2.0-flash-exp": 8192,
@@ -10,12 +9,14 @@ MAX_TOKEN = {
     "gemini-1.5-pro": 8192,
 }
 
-async def geniChat(websocket, msg):
+async def geniChat(websocket, msg, lapi, user):
+    # os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "leither-ai-credentials.json"
     params = msg["parameters"]
     userQuery = msg["input"]["query"]
-    encodedQuerLen = len(userQuery)
+    model = genai.GenerativeModel(params["model"])
+    inputTokenCount = model.count_tokens(userQuery).total_tokens
 
-    CHAT_LLM = ChatVertexAI(
+    CHAT_LLM = ChatGoogleGenerativeAI(
         model=params["model"],
         temperature=0,
         max_tokens=None,
@@ -29,12 +30,12 @@ async def geniChat(websocket, msg):
         # memory.clear()  # do not use memory on serverside.
         # Add chat history kept by client.
         for c in msg["input"]["history"]:
-            encodedQuerLen += len(c["Q"] + c["A"])
-            if encodedQuerLen > MAX_TOKEN[params["model"]]*2/3:
+            inputTokenCount += model.count_tokens(c["Q"] + c["A"]).total_tokens
+            if inputTokenCount > MAX_TOKEN[params["model"]]*2/3:
                 break
             else:
                 query = "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n" + query
-    print(query)
+    print(inputTokenCount)
     start_time = time.time()
     chain = CHAT_LLM
     resp = ""
@@ -43,10 +44,10 @@ async def geniChat(websocket, msg):
     async for chunk in chain.astream(query):
         print(chunk.content, end="|", flush=True)    # chunk size can be big
         resp += chunk.content
+
         # the last chuck contains the usage metadata
         if chunk.usage_metadata is not None:
             token_count = chunk.usage_metadata["total_tokens"]
-
         await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
     print("time diff=", (time.time() - start_time))
     sys.stdout.flush()
@@ -56,6 +57,8 @@ async def geniChat(websocket, msg):
         "answer": resp, 
         "tokens": token_count,
         "cost": cost}))
+
+    lapi.bookkeeping(params["model"], cost, token_count, user)
 
 ###
 # content='Hello! 👋  How can I help you today? 😊 \n' additional_kwargs={} 
