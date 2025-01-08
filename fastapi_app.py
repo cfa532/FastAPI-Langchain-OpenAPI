@@ -215,7 +215,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                     encodedQuerLen += len(txt)
 
             if params["llm"] == "openai":
-                await openChat(websocket, event, params)
+                await openChat(websocket, event, lapi, user)
             elif params["llm"] == "gemini":
                 # genai.configure(api_key="AIzaSyBO9DAZ-iPlACBFNz-9J1s4m08lNtVsJRQ")
                 # CHAT_LLM = ChatGoogleGenerativeAI(

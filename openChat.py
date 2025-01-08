@@ -41,7 +41,7 @@ MAX_TOKEN = {
 # }
 ############################################################################################
     
-async def openChat(websocket, msg):
+async def openChat(websocket, msg, lapi, user):
     params = msg["parameters"]
     userQuery = msg["input"]["query"]
     # await websocket.send_text(json.dumps({
@@ -73,12 +73,12 @@ async def openChat(websocket, msg):
                 break
             else:
                 query = "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n" + query
-    query = """
-        The following is a friendly conversation between a human and an AI. 
-        The AI is talkative and provides lots of specific details from its context.
-        If the AI does not know the answer to a question, 
-        it truthfully says it does not know.\nCurrent conversation:\n
-    """ + query
+    # query = """
+    #     The following is a friendly conversation between a human and an AI. 
+    #     The AI is talkative and provides lots of specific details from its context.
+    #     If the AI does not know the answer to a question, 
+    #     it truthfully says it does not know.\nCurrent conversation:\n
+    # """ + query
     print(query)
 
     start_time = time.time()
