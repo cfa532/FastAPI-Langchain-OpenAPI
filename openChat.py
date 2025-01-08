@@ -1,4 +1,4 @@
-import asyncio, websockets, os, sys, json, ssl, time
+import asyncio, websockets, os, tiktoken, sys, json, ssl, time
 from datetime import datetime
 from typing import Any
 from langchain_openai import ChatOpenAI
@@ -14,6 +14,7 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from langchain.globals import set_verbose
 
 from openaiCBHandler import get_cost_tracker_callback
+tiktoken_encoder = tiktoken.get_encoding("cl100k_base")
 
 MAX_TOKEN = {
     "gpt-3.5-turbo": 4096,
@@ -44,6 +45,28 @@ MAX_TOKEN = {
 async def openChat(websocket, msg, lapi, user):
     params = msg["parameters"]
     userQuery = msg["input"]["query"]
+    encodedQuerLen = len(tiktoken_encoder.encode(userQuery))
+
+    # process uploaded attachments
+    for i in range(msg["input"]["numOfAttachments"]):
+        file_data = await websocket.receive_bytes()
+        mime = magic.Magic(mime=True)
+        file_type = mime.from_buffer(file_data)
+        print(f'Detected file type: {file_type}')
+
+        if 'text' in file_type:
+            # append file to user query
+            file_data = file_data.decode('utf-8')
+            encodedFile = tiktoken_encoder.encode(file_data)
+            if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
+                userQuery += "\n" + file_data
+                encodedQuerLen += len(encodedFile)
+        else:
+            # assume it is pdf for now, default English
+            txt = load_pdf(file_data, "eng")
+            userQuery += "\n" + txt
+            encodedQuerLen += len(txt)
+    
     # await websocket.send_text(json.dumps({
     #         "type": "result",
     #         "answer": "Message received. " + userQuery, 
@@ -95,7 +118,8 @@ async def openChat(websocket, msg, lapi, user):
         sys.stdout.flush()
         await websocket.send_text(json.dumps({
             "type": "result",
-            "answer": resp, 
+            "answer": resp,
             "tokens": cb.total_tokens,
             "cost": cb.total_cost}))
+
         lapi.bookkeeping(params["model"], cb.total_cost, cb.total_tokens, user)

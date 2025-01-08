@@ -1,4 +1,4 @@
-import json, sys, os, tiktoken, magic, logging
+import json, sys, os, magic, logging
 from datetime import datetime, timedelta, timezone
 from contextlib import asynccontextmanager
 from typing import Annotated, Union, List
@@ -39,7 +39,6 @@ credentials_exception = HTTPException(
     headers={"WWW-Authenticate": "Bearer"},
 )
 connectionManager = ConnectionManager()
-tiktoken_encoder = tiktoken.get_encoding("cl100k_base")
 lapi = LeitherAPI()
 
 class Token(BaseModel):
@@ -191,28 +190,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             message = await websocket.receive_text()
             event = json.loads(message)            
             params = event["parameters"]
-            userQuery = event["input"]["query"]
-            encodedQuerLen = len(tiktoken_encoder.encode(userQuery))
-
-            # process uploaded attachments
-            for i in range(event["input"]["numOfAttachments"]):
-                file_data = await websocket.receive_bytes()
-                mime = magic.Magic(mime=True)
-                file_type = mime.from_buffer(file_data)
-                print(f'Detected file type: {file_type}')
-
-                if 'text' in file_type:
-                    # append file to user query
-                    file_data = file_data.decode('utf-8')
-                    encodedFile = tiktoken_encoder.encode(file_data)
-                    if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
-                        userQuery += "\n" + file_data
-                        encodedQuerLen += len(encodedFile)
-                else:
-                    # assume it is pdf for now, default English
-                    txt = load_pdf(file_data, "eng")
-                    userQuery += "\n" + txt
-                    encodedQuerLen += len(txt)
 
             if params["llm"] == "openai":
                 await openChat(websocket, event, lapi, user)
