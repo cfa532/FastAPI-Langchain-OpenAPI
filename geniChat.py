@@ -35,7 +35,6 @@ async def geniChat(websocket, msg, lapi, user):
                 break
             else:
                 query = "Human: "+c["Q"]+"\nAI: "+c["A"]+"\n" + query
-    print(inputTokenCount)
     start_time = time.time()
     chain = CHAT_LLM
     resp = ""
