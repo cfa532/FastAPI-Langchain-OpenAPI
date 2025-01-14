@@ -194,10 +194,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
             if params["llm"] == "openai":
                 await openChat(websocket, event, lapi, user)
             elif params["llm"] == "gemini":
-                # genai.configure(api_key="AIzaSyBO9DAZ-iPlACBFNz-9J1s4m08lNtVsJRQ")
-                # CHAT_LLM = ChatGoogleGenerativeAI(
-                #     model = params["model"],
-                # )
                 await geniChat(websocket, event, lapi, user)
             else:
                 continue
