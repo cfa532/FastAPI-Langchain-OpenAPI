@@ -1,5 +1,6 @@
 import json, sys, os, time, io, base64, requests
 # import google.generativeai as genai
+from langchain_google_vertexai import ChatVertexAI
 from google.cloud import storage
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, ChatSession
@@ -28,6 +29,15 @@ async def geniChat(websocket, msg, lapi, user):
                 "type": "result",
                 "answer": response.text}))
     else:
+        CHAT_LLM = ChatVertexAI(
+            model=params["model"],
+            temperature=0,
+            max_tokens=None,
+            timeout=None,
+            max_retries=2,
+            streaming=True,
+            verbose=True
+        )
         query = "Human: " + instructions + "\nAI:"
         if msg["input"].get("history"):
             # Add chat history kept by client.
@@ -41,18 +51,18 @@ async def geniChat(websocket, msg, lapi, user):
         token_count = 0
         cost = 0
         answer = ""
+        chain = CHAT_LLM
         start_time = time.time()
         # chat_session = model.start_chat()
-        responses = model.generate_content(query, stream=True)
 
-        for chunk in responses:
-            answer += chunk.text
-            print(chunk)
+        async for chunk in chain.astream(query):
+            answer += chunk.content
+            print(chunk.content)
+            await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
+            sys.stdout.flush()
             # the last chuck contains the usage metadata
-            if chunk.usage_metadata and chunk.usage_metadata.total_token_count:
-                token_count = chunk.usage_metadata.total_token_count
-                print(chunk.usage_metadata)
-            await websocket.send_text(json.dumps({"type": "stream", "data": chunk.text}))
+        if chunk.usage_metadata is not None:
+            token_count = chunk.usage_metadata["total_tokens"]
 
         print("time diff=", (time.time() - start_time))
         

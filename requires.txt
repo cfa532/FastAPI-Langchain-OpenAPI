@@ -13,3 +13,4 @@ poppler-utils
 python-magic
 langchain_google_genai
 google-cloud-api-keys
+langchain_google_vertexai
