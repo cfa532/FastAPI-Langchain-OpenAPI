@@ -3,7 +3,7 @@ import json, sys, os, time, io, base64, requests
 from google.cloud import storage
 import vertexai
 from vertexai.generative_models import GenerativeModel, Part, ChatSession
-vertexai.init(project=os.environ.get("GOOGLE_CLOUD_PROJECT"), location="asia-east1")
+vertexai.init(project=os.environ.get("GOOGLE_CLOUD_PROJECT"))
 
 MAX_TOKEN = {
     "gemini-2.0-flash-exp": 8192,
