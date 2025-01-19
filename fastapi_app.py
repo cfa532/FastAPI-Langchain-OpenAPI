@@ -313,7 +313,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
             for index, ci in enumerate(chunks):
                 with get_cost_tracker_callback(llm_model) as cb:
                     # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                    print(ci)
                     async for chunk in chain.astream(query["prompt"] + "\n\n" + ci):
                         print(chunk.content, end="|", flush=True)    # chunk size can be big
                         resp += chunk.content
@@ -324,7 +323,7 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                     await websocket.send_text(json.dumps({
                         "type": "result",
                         "answer": resp,
-                        "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and comletion tokens. Prices are different.
+                        "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and completion tokens. Prices are different.
                         "cost": cb.total_cost * lapi.cost_efficiency,           # total cost in USD
                         "eof": index == (len(chunks) - 1),                      # end of content
                         }))
