@@ -21,6 +21,7 @@ MAX_TOKEN = {
     "gpt-4": 4096,
     "gpt-4-turbo": 8192,
     "gpt-4o": 8192,
+    "o3-mini": 8192,
 }
 
 # ssl_context = ssl.SSLContext(ssl.PROTOCOL_TLS_SERVER)
@@ -76,7 +77,7 @@ async def openChat(websocket, msg, lapi, user):
     # continue
 
     CHAT_LLM = ChatOpenAI(
-        temperature=float(params["temperature"]),
+        # temperature=float(params["temperature"]),
         model=params["model"],
         streaming=True,
         verbose=True

@@ -28,6 +28,7 @@ MAX_TOKEN = {
     "gpt-4-turbo": 8192,
     "gpt-4o": 8192,
     "gemini-1.5-flash": 8192,
+    "o3-mini": 8192,
 }
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
