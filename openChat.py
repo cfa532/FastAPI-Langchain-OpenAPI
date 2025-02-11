@@ -77,7 +77,7 @@ async def openChat(websocket, msg, lapi, user):
     # continue
 
     CHAT_LLM = ChatOpenAI(
-        # temperature=float(params["temperature"]),
+        # temperature=float(params["temperature"]),     // o3 model has no temperature
         model=params["model"],
         streaming=True,
         verbose=True

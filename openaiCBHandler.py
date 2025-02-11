@@ -8,6 +8,9 @@ from langchain_community.callbacks.openai_info import MODEL_COST_PER_1K_TOKENS, 
 from langchain_core.outputs import LLMResult
 
 MODEL_COST_PER_1K_TOKENS = MODEL_COST_PER_1K_TOKENS | {
+    "o3-mini": 0.005,
+    "o3-mini-completion": 0.005,
+    
     # GPT-4 input
     "gpt-4-turbo": 0.01,
     "gpt-4o": 0.005,
@@ -32,15 +35,9 @@ def standardize_model_name(
 
     """
     model_name = model_name.lower()
-    if ".ft-" in model_name:
-        model_name = model_name.split(".ft-")[0] + "-azure-finetuned"
-    if ":ft-" in model_name:
-        model_name = model_name.split(":")[0] + "-finetuned-legacy"
-    if "ft:" in model_name:
-        model_name = model_name.split(":")[1] + "-finetuned"
     if is_completion and (
         model_name.startswith("gpt-4")
-        # or model_name.startswith("gpt-4o")
+        or model_name.startswith("o3-mini")
         or model_name.startswith("gpt-3.5")
         or model_name.startswith("gpt-35")
         or ("finetuned" in model_name and "legacy" not in model_name)
