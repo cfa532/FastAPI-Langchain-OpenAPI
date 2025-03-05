@@ -19,6 +19,7 @@ from dotenv import load_dotenv
 load_dotenv()
 from openChat import openChat
 from geniChat import geniChat
+from claude import claude
 
 # to get a string like this run:
 # openssl rand -hex 32
@@ -29,6 +30,7 @@ MAX_TOKEN = {
     "gpt-4o": 8192,
     "gemini-1.5-flash": 8192,
     "o3-mini": 8192,
+    "claude-3-7-sonnet-20250219": 8192,
 }
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
@@ -196,6 +198,8 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query(...)):
                 await openChat(websocket, event, lapi, user)
             elif params["llm"] == "gemini":
                 await geniChat(websocket, event, lapi, user)
+            elif params["llm"] == "claude":
+                await claude(websocket, event, lapi, user)
             else:
                 continue
 
