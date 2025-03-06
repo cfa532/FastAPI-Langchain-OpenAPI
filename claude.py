@@ -3,7 +3,7 @@ from langchain_anthropic import ChatAnthropic
 import anthropic
 
 MAX_TOKEN = {
-    "claude-3-7-sonnet-20250219": 8192,
+    "claude-3-7-sonnet-20250219": 20000,
 }
 
 async def claude(websocket, msg, lapi, user):
@@ -29,7 +29,7 @@ async def claude(websocket, msg, lapi, user):
         CHAT_LLM = ChatAnthropic(
             model=params["model"],
             temperature=0,
-            max_tokens=None,
+            max_tokens=MAX_TOKEN[params["model"]],
             timeout=None,
             max_retries=2,
             streaming=True,
