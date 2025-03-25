@@ -21,17 +21,6 @@ from openChat import openChat
 from geniChat import geniChat
 from claude import claude
 
-# to get a string like this run:
-# openssl rand -hex 32
-MAX_TOKEN = {
-    "gpt-3.5-turbo": 4096,
-    "gpt-4": 4096,
-    "gpt-4-turbo": 8192,
-    "gpt-4o": 8192,
-    "gemini-1.5-flash": 8192,
-    "o3-mini": 8192,
-    "claude-3-7-sonnet-20250219": 8192,
-}
 SECRET_KEY = os.environ.get("AICHAT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 480*3000   # expire in 8 hrs
