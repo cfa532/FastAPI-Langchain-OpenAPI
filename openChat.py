@@ -1,4 +1,4 @@
-import asyncio, websockets, os, tiktoken, sys, json, ssl, time
+import asyncio, websockets, os, tiktoken, sys, json, ssl, time, magic
 from datetime import datetime
 from typing import Any
 from langchain_openai import ChatOpenAI
@@ -55,18 +55,18 @@ async def openChat(websocket, msg, lapi, user):
         file_type = mime.from_buffer(file_data)
         print(f'Detected file type: {file_type}')
 
-        if 'text' in file_type:
+        # if 'text' in file_type:
             # append file to user query
-            file_data = file_data.decode('utf-8')
-            encodedFile = tiktoken_encoder.encode(file_data)
-            if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
-                userQuery += "\n" + file_data
-                encodedQuerLen += len(encodedFile)
-        else:
-            # assume it is pdf for now, default English
-            txt = load_pdf(file_data, "eng")
-            userQuery += "\n" + txt
-            encodedQuerLen += len(txt)
+        file_data = file_data.decode('utf-8')
+        encodedFile = tiktoken_encoder.encode(file_data)
+        if encodedQuerLen+len(encodedFile) < MAX_TOKEN[params["model"]]*2/3:
+            userQuery += "\n" + file_data
+            encodedQuerLen += len(encodedFile)
+        # else:
+        #     # assume it is pdf for now, default English
+        #     txt = load_pdf(file_data, "eng")
+        #     userQuery += "\n" + txt
+        #     encodedQuerLen += len(txt)
     
     # await websocket.send_text(json.dumps({
     #         "type": "result",

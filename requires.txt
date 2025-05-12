@@ -1,6 +1,7 @@
 langchain
 langchain_openai
 python-dotenv
+python-magic
 langchain-community
 websockets
 hprose

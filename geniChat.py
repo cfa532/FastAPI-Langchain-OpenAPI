@@ -7,7 +7,7 @@ from vertexai.generative_models import GenerativeModel, Part, ChatSession
 vertexai.init(project=os.environ.get("GOOGLE_CLOUD_PROJECT"))
 
 MAX_TOKEN = {
-    "gemini-2.0-flash-exp": 81920,
+    "gemini-2.0-flash": 81920,
     "gemini-1.5-flash": 8192,
     "gemini-1.5-pro": 8192,
 }
