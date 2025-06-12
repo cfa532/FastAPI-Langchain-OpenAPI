@@ -3,7 +3,8 @@ from langchain_anthropic import ChatAnthropic
 import anthropic
 
 MAX_TOKEN = {
-    "claude-3-7-sonnet-20250219": 20000,
+    "claude-sonnet-4-20250514": 20000,
+    "claude-opus-4-20250514": 20000,
 }
 
 async def claude(websocket, msg, lapi, user):

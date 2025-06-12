@@ -8,8 +8,7 @@ vertexai.init(project=os.environ.get("GOOGLE_CLOUD_PROJECT"))
 
 MAX_TOKEN = {
     "gemini-2.0-flash": 81920,
-    "gemini-1.5-flash": 8192,
-    "gemini-1.5-pro": 8192,
+    "gemini-2.5-pro-preview-06-05": 8192,
 }
 
 async def geniChat(websocket, msg, lapi, user):

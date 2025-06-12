@@ -17,10 +17,8 @@ from openaiCBHandler import get_cost_tracker_callback
 tiktoken_encoder = tiktoken.get_encoding("cl100k_base")
 
 MAX_TOKEN = {
-    "gpt-3.5-turbo": 4096,
-    "gpt-4": 4096,
-    "gpt-4-turbo": 8192,
     "gpt-4o": 8192,
+    "gpt-4.1": 8192,
     "o3-mini": 8192,
 }
 

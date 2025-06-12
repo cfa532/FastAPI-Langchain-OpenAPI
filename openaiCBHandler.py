@@ -12,11 +12,11 @@ MODEL_COST_PER_1K_TOKENS = MODEL_COST_PER_1K_TOKENS | {
     "o3-mini-completion": 0.005,
     
     # GPT-4 input
-    "gpt-4-turbo": 0.01,
+    "gpt-4.1": 0.01,
     "gpt-4o": 0.005,
 
     # GPT-4 output
-    "gpt-4-turbo-completion": 0.03,
+    "gpt-4.1": 0.03,
     "gpt-4o-completion": 0.015,
 }
 
@@ -37,9 +37,7 @@ def standardize_model_name(
     model_name = model_name.lower()
     if is_completion and (
         model_name.startswith("gpt-4")
-        or model_name.startswith("o3-mini")
-        or model_name.startswith("gpt-3.5")
-        or model_name.startswith("gpt-35")
+        or model_name.startswith("gpt-4.1")
         or ("finetuned" in model_name and "legacy" not in model_name)
     ):
         return model_name + "-completion"
