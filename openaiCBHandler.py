@@ -12,12 +12,12 @@ MODEL_COST_PER_1K_TOKENS = MODEL_COST_PER_1K_TOKENS | {
     "o3-mini-completion": 0.005,
     
     # GPT-4 input
-    "gpt-4.1": 0.01,
-    "gpt-4o": 0.005,
+    "gpt-4o": 0.01,
+    "gpt-4o-completion": 0.005,
 
     # GPT-4 output
     "gpt-4.1": 0.03,
-    "gpt-4o-completion": 0.015,
+    "gpt-4.1-completion": 0.015,
 }
 
 def standardize_model_name(
