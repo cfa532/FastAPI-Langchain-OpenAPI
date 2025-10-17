@@ -77,11 +77,15 @@ def periodic_task():
         is_working = loop.run_until_complete(leither_port_detector._test_port_connection(LEITHER_PORT))
         if not is_working:
             print(f"Leither port {LEITHER_PORT} is not responding, attempting to redetect...")
-            new_port = loop.run_until_complete(leither_port_detector.get_leither_port())
-            if new_port != LEITHER_PORT:
-                LEITHER_PORT = new_port
-                lapi.update_port(LEITHER_PORT)
-                print(f"Leither port updated to: {LEITHER_PORT}")
+            try:
+                new_port = loop.run_until_complete(leither_port_detector.get_leither_port())
+                if new_port != LEITHER_PORT:
+                    LEITHER_PORT = new_port
+                    lapi.update_port(LEITHER_PORT)
+                    print(f"Leither port updated to: {LEITHER_PORT}")
+            except RuntimeError as e:
+                print(f"CRITICAL: Leither service no longer available: {e}")
+                # Could implement service restart logic here if needed
         loop.close()
     except Exception as e:
         print(f"Error checking Leither port health: {e}")
@@ -105,11 +109,13 @@ async def startup_event():
         # Update the LeitherAPI with the detected port
         lapi.update_port(LEITHER_PORT)
         
+    except RuntimeError as e:
+        print(f"CRITICAL ERROR: {e}")
+        print("FastAPI startup aborted - Leither service is required")
+        raise e  # Re-raise to prevent FastAPI from starting without Leither
     except Exception as e:
-        print(f"Error during startup port detection: {e}")
-        LEITHER_PORT = 8081  # fallback to default
-        lapi.update_port(LEITHER_PORT)
-        print(f"Using fallback port: {LEITHER_PORT}")
+        print(f"Unexpected error during startup: {e}")
+        raise e  # Re-raise unexpected errors
 
 # Configure CORS
 app.add_middleware(

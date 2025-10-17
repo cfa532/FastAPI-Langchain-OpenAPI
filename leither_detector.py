@@ -119,11 +119,8 @@ class LeitherPortDetector:
                 logger.info(f'Using detected Leither port: {detected_port}')
                 return detected_port
         
-        # Fallback to default port
-        logger.info(f'Using default Leither port: {self.default_port}')
-        self.detected_port = self.default_port
-        self._save_cached_port()  # Save to cache
-        return self.default_port
+        # No fallback - throw exception if no port detected
+        raise RuntimeError(f'Leither service not detected on any port in range {self.port_range[0]}-{self.port_range[1]}. Please ensure Leither service is running.')
     
     async def _run_command(self, command: str) -> str:
         """
