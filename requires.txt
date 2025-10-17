@@ -8,3 +8,4 @@ app-store-server-library
 apscheduler
 python-jose[cryptography]
 hprose
+aiohttp

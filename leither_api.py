@@ -11,22 +11,41 @@ PRODUCTS={}     # in-app purchase products defined in Appconnect
 
 class LeitherAPI:
  
-    def __init__(self):
-        self.client = hprose.HttpClient('http://localhost:8081/webapi/')
-        print(self.client.GetVar("", "ver"))
-        self.ppt = self.client.GetVarByContext("", "context_ppt")
-        self.api = self.client.Login(self.ppt)
-        self.sid = self.api.sid
-        self.uid = self.api.uid
-        self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "App", "secretari backend", 2, 0x07276705)
-        self.sid_time = time.time()
+    def __init__(self, port=8081):
+        self.base_url = f'http://localhost:{port}/webapi/'
+        self.port = port
+        self._initialize_client()
 
-        # user .env to update important parameters. To update app settings without reboot.
-        self.load_env()
+    def _initialize_client(self):
+        """Initialize the hprose client with current port"""
+        try:
+            self.client = hprose.HttpClient(self.base_url)
+            print(f"Connecting to Leither service at: {self.base_url}")
+            print(self.client.GetVar("", "ver"))
+            self.ppt = self.client.GetVarByContext("", "context_ppt")
+            self.api = self.client.Login(self.ppt)
+            self.sid = self.api.sid
+            self.uid = self.api.uid
+            self.mid = self.client.MMCreate(self.sid, APPID_MIMEI_KEY, "App", "secretari backend", 2, 0x07276705)
+            self.sid_time = time.time()
 
-        print("sid  ", self.sid)
-        print("uid  ", self.uid)
-        print("mid  ", self.mid)
+            # user .env to update important parameters. To update app settings without reboot.
+            self.load_env()
+
+            print("sid  ", self.sid)
+            print("uid  ", self.uid)
+            print("mid  ", self.mid)
+        except Exception as e:
+            print(f"Error initializing Leither client on port {self.port}: {e}")
+            raise e
+
+    def update_port(self, new_port):
+        """Update the port and reinitialize the client"""
+        if new_port != self.port:
+            print(f"Updating Leither port from {self.port} to {new_port}")
+            self.port = new_port
+            self.base_url = f'http://localhost:{new_port}/webapi/'
+            self._initialize_client()
 
     def load_env(self):
         global PRODUCTS

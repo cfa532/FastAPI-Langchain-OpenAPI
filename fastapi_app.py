@@ -18,6 +18,7 @@ from leither_api import LeitherAPI
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
 import apple_notification_sandbox, apple_notification_production
+from leither_detector import leither_port_detector
 
 # to get a string like this run: openssl rand -hex 32
 SECRET_KEY = "ebf79dbbdcf6a3c860650661b3ca5dc99b7d44c269316c2bd9fe7c7c5e746274"
@@ -34,6 +35,9 @@ MAX_TOKEN = {
 }
 connectionManager = ConnectionManager()
 lapi = LeitherAPI()
+
+# Global state for Leither port
+LEITHER_PORT = None
 
 env = dotenv_values(".env")
 LLM_MODEL = env["CURRENT_LLM_MODEL"]
@@ -59,14 +63,53 @@ scheduler = BackgroundScheduler()
 
 def periodic_task():
     env = dotenv_values(".env")
-    global LLM_MODEL, OPENAI_KEYS, SERVER_MAINTENCE
+    global LLM_MODEL, OPENAI_KEYS, SERVER_MAINTENCE, LEITHER_PORT
     # export as defualt parameters. Values updated hourly.
     LLM_MODEL = env["CURRENT_LLM_MODEL"]
     OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
     SERVER_MAINTENCE=env["SERVER_MAINTENCE"]
+    
+    # Check if Leither port is still working
+    import asyncio
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        is_working = loop.run_until_complete(leither_port_detector._test_port_connection(LEITHER_PORT))
+        if not is_working:
+            print(f"Leither port {LEITHER_PORT} is not responding, attempting to redetect...")
+            new_port = loop.run_until_complete(leither_port_detector.get_leither_port())
+            if new_port != LEITHER_PORT:
+                LEITHER_PORT = new_port
+                lapi.update_port(LEITHER_PORT)
+                print(f"Leither port updated to: {LEITHER_PORT}")
+        loop.close()
+    except Exception as e:
+        print(f"Error checking Leither port health: {e}")
 
 scheduler.add_job(periodic_task, 'interval', seconds=3600)
 scheduler.start()
+
+# Startup event to detect Leither port
+@app.on_event("startup")
+async def startup_event():
+    """Initialize Leither port detection on startup"""
+    global LEITHER_PORT
+    try:
+        print("Starting FastAPI application...")
+        print("Detecting Leither service port...")
+        
+        # Detect and store the Leither port
+        LEITHER_PORT = await leither_port_detector.get_leither_port()
+        print(f"Leither service detected on port: {LEITHER_PORT}")
+        
+        # Update the LeitherAPI with the detected port
+        lapi.update_port(LEITHER_PORT)
+        
+    except Exception as e:
+        print(f"Error during startup port detection: {e}")
+        LEITHER_PORT = 8081  # fallback to default
+        lapi.update_port(LEITHER_PORT)
+        print(f"Using fallback port: {LEITHER_PORT}")
 
 # Configure CORS
 app.add_middleware(
@@ -195,6 +238,31 @@ async def get_productIDs():
     product_ids = dotenv_values(".env")["SECRETARI_PRODUCT_ID_IOS"]
     # return HTMLResponse("Hello world.")
     return json.loads(product_ids)
+
+@app.get(BASE_ROUTE + "/server/status")
+async def get_server_status():
+    """Get server status including Leither port information"""
+    global LEITHER_PORT
+    try:
+        # Test current Leither port connectivity
+        is_leither_working = await leither_port_detector._test_port_connection(LEITHER_PORT) if LEITHER_PORT else False
+        
+        return {
+            "server_time": datetime.now().isoformat(),
+            "leither_port": LEITHER_PORT,
+            "leither_connected": is_leither_working,
+            "active_connections": len(connectionManager.active_connections),
+            "llm_model": LLM_MODEL,
+            "server_maintenance": SERVER_MAINTENCE,
+            "max_token_limits": MAX_TOKEN
+        }
+    except Exception as e:
+        return {
+            "error": str(e),
+            "server_time": datetime.now().isoformat(),
+            "leither_port": LEITHER_PORT,
+            "leither_connected": False
+        }
 
 @app.post(BASE_ROUTE + "/app_server_notifications_production")
 async def apple_notifications_production(request: Request):
