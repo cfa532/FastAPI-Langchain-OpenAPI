@@ -228,7 +228,7 @@ async def register_user(user: UserIn, lapi_instance: Annotated[LeitherAPI, Depen
 
 @app.post(BASE_ROUTE + "/users/temp")
 async def register_temp_user(user: UserIn, lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
-    # A temp user has assigned username, usually the device identifier.
+    # A temp user has been assigned a username, usually the device identifier.
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
     user = lapi_instance.register_temp_user(UserInDB(**user_in_db))
