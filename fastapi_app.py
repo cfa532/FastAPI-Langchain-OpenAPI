@@ -34,7 +34,7 @@ MAX_TOKEN = {
     "gpt-3.5-turbo": 4096,
 }
 connectionManager = ConnectionManager()
-lapi = LeitherAPI()
+lapi = None  # Will be initialized after port detection
 
 # Global state for Leither port
 LEITHER_PORT = None
@@ -63,32 +63,33 @@ scheduler = BackgroundScheduler()
 
 def periodic_task():
     env = dotenv_values(".env")
-    global LLM_MODEL, OPENAI_KEYS, SERVER_MAINTENCE, LEITHER_PORT
+    global LLM_MODEL, OPENAI_KEYS, SERVER_MAINTENCE, LEITHER_PORT, lapi
     # export as defualt parameters. Values updated hourly.
     LLM_MODEL = env["CURRENT_LLM_MODEL"]
     OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
     SERVER_MAINTENCE=env["SERVER_MAINTENCE"]
     
-    # Check if Leither port is still working
-    import asyncio
-    try:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        is_working = loop.run_until_complete(leither_port_detector._test_port_connection(LEITHER_PORT))
-        if not is_working:
-            print(f"Leither port {LEITHER_PORT} is not responding, attempting to redetect...")
-            try:
-                new_port = loop.run_until_complete(leither_port_detector.get_leither_port())
-                if new_port != LEITHER_PORT:
-                    LEITHER_PORT = new_port
-                    lapi.update_port(LEITHER_PORT)
-                    print(f"Leither port updated to: {LEITHER_PORT}")
-            except RuntimeError as e:
-                print(f"CRITICAL: Leither service no longer available: {e}")
-                # Could implement service restart logic here if needed
-        loop.close()
-    except Exception as e:
-        print(f"Error checking Leither port health: {e}")
+    # Check if Leither port is still working (only if lapi is initialized)
+    if lapi is not None and LEITHER_PORT is not None:
+        import asyncio
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            is_working = loop.run_until_complete(leither_port_detector._test_port_connection(LEITHER_PORT))
+            if not is_working:
+                print(f"Leither port {LEITHER_PORT} is not responding, attempting to redetect...")
+                try:
+                    new_port = loop.run_until_complete(leither_port_detector.get_leither_port())
+                    if new_port != LEITHER_PORT:
+                        LEITHER_PORT = new_port
+                        lapi.update_port(LEITHER_PORT)
+                        print(f"Leither port updated to: {LEITHER_PORT}")
+                except RuntimeError as e:
+                    print(f"CRITICAL: Leither service no longer available: {e}")
+                    # Could implement service restart logic here if needed
+            loop.close()
+        except Exception as e:
+            print(f"Error checking Leither port health: {e}")
 
 scheduler.add_job(periodic_task, 'interval', seconds=3600)
 scheduler.start()
@@ -97,7 +98,7 @@ scheduler.start()
 @app.on_event("startup")
 async def startup_event():
     """Initialize Leither port detection on startup"""
-    global LEITHER_PORT
+    global LEITHER_PORT, lapi
     try:
         print("Starting FastAPI application...")
         print("Detecting Leither service port...")
@@ -105,9 +106,11 @@ async def startup_event():
         # Detect and store the Leither port
         LEITHER_PORT = await leither_port_detector.get_leither_port()
         print(f"Leither service detected on port: {LEITHER_PORT}")
+        print(f"LEITHER_PORT = {LEITHER_PORT}")
         
-        # Update the LeitherAPI with the detected port
-        lapi.update_port(LEITHER_PORT)
+        # Initialize the LeitherAPI with the detected port
+        lapi = LeitherAPI(LEITHER_PORT)
+        print("LeitherAPI initialized successfully")
         
     except RuntimeError as e:
         print(f"CRITICAL ERROR: {e}")
@@ -126,15 +129,15 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all headers
 )
 
-def authenticate_user(username: str, password: str) -> UserOut:
-    user = lapi.get_user(username)    # check index db
+def authenticate_user(username: str, password: str, lapi_instance) -> UserOut:
+    user = lapi_instance.get_user(username)    # check index db
     if user is None:
         return None
     if password != "" and not verify_password(password, user.hashed_password):
         # if password is empty string, this is a temp user. "" not equal to None.
         return None
     # check if index db record exists. If not, the user has been deleted.
-    user_in_db = lapi.get_user_in_db(user)
+    user_in_db = lapi_instance.get_user_in_db(user)
     if user_in_db is None:
         return None
     return UserOut(**user.model_dump())
@@ -148,6 +151,15 @@ def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None
     to_encode.update({"exp": expire})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+async def get_lapi():
+    """Dependency to ensure LeitherAPI is initialized"""
+    if lapi is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Leither service not available"
+        )
+    return lapi
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
     credentials_exception = HTTPException(
@@ -163,15 +175,20 @@ async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
         token_data = TokenData(username=username)
     except JWTError:
         raise credentials_exception
+    if lapi is None:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Leither service not available"
+        )
     user = lapi.get_user(username=token_data.username)
     if user is None:
         raise credentials_exception
     return user
 
 @app.post(BASE_ROUTE + "/token")
-async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
+async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm, Depends()], lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
     print("form data", form_data.username, form_data.client_id)
-    user = authenticate_user(form_data.username, form_data.password)
+    user = authenticate_user(form_data.username, form_data.password, lapi_instance)
     if not user:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -186,23 +203,23 @@ async def login_for_access_token( form_data: Annotated[OAuth2PasswordRequestForm
     return {"token": token, "user": user.model_dump()}
 
 @app.post(BASE_ROUTE + "/users/register")
-async def register_user(user: UserIn) -> UserOut:
+async def register_user(user: UserIn, lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]) -> UserOut:
     # If user has tried service, there is valid mid attribute. Otherwise, it is None
     print("User in for register:", user)
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
-    user = lapi.register_in_db(UserInDB(**user_in_db))
+    user = lapi_instance.register_in_db(UserInDB(**user_in_db))
     if not user:
         raise HTTPException(status_code=400, detail="Username already taken")
     print("User out", user)
     return user
 
 @app.post(BASE_ROUTE + "/users/temp")
-async def register_temp_user(user: UserIn):
+async def register_temp_user(user: UserIn, lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
     # A temp user has assigned username, usually the device identifier.
     user_in_db = user.model_dump(exclude=["password"])
     user_in_db.update({"hashed_password": get_password_hash(user.password)})  # save hashed password in DB
-    user = lapi.register_temp_user(UserInDB(**user_in_db))
+    user = lapi_instance.register_temp_user(UserInDB(**user_in_db))
     if not user:
         raise HTTPException(status_code=400, detail="Failed to create temp User.")
     
@@ -217,24 +234,24 @@ async def register_temp_user(user: UserIn):
 
 # redeem coupons
 @app.post(BASE_ROUTE + "/users/redeem")
-async def cash_coupon(coupon: str, current_user: Annotated[UserInDB, Depends(get_current_user)]) -> bool:
-    return lapi.cash_coupon(current_user, coupon)
+async def cash_coupon(coupon: str, current_user: Annotated[UserInDB, Depends(get_current_user)], lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]) -> bool:
+    return lapi_instance.cash_coupon(current_user, coupon)
 
 #update user infor
 @app.put(BASE_ROUTE + "/users")
-async def update_user_by_obj(user: UserIn, user_in_db: Annotated[UserInDB, Depends(get_current_user)]):
+async def update_user_by_obj(user: UserIn, user_in_db: Annotated[UserInDB, Depends(get_current_user)], lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
     user_in_db.family_name = user.family_name
     user_in_db.given_name = user.given_name
     user_in_db.email = user.email
     # if User password is null, do not update it.
     if user.password:
         user_in_db.hashed_password = get_password_hash(user.password)  # save hashed password in DB
-    return lapi.update_user(user_in_db).model_dump()
+    return lapi_instance.update_user(user_in_db).model_dump()
 
 # delete current user, return {id: user_id}
 @app.delete(BASE_ROUTE + "/users")
-async def delete_user(user_in_db: Annotated[UserInDB, Depends(get_current_user)]):
-    ret = lapi.delete_user(user_in_db)
+async def delete_user(user_in_db: Annotated[UserInDB, Depends(get_current_user)], lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
+    ret = lapi_instance.delete_user(user_in_db)
     print("delete=", ret)
     return ret
 
@@ -271,19 +288,19 @@ async def get_server_status():
         }
 
 @app.post(BASE_ROUTE + "/app_server_notifications_production")
-async def apple_notifications_production(request: Request):
+async def apple_notifications_production(request: Request, lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
     try:
         body = await request.json()
-        await apple_notification_production.decode_notification(lapi, body["signedPayload"])
+        await apple_notification_production.decode_notification(lapi_instance, body["signedPayload"])
         return {"status": "ok"}
     except:
         raise HTTPException(status_code=400, detail="Invalid notification data")
 
 @app.post(BASE_ROUTE + "/app_server_notifications_sandbox")
-async def apple_notifications_sandbox(request: Request):
+async def apple_notifications_sandbox(request: Request, lapi_instance: Annotated[LeitherAPI, Depends(get_lapi)]):
     try:
         body = await request.json()
-        await apple_notification_sandbox.decode_notification(lapi, body["signedPayload"])
+        await apple_notification_sandbox.decode_notification(lapi_instance, body["signedPayload"])
         return {"status": "ok"}
     except:
         raise HTTPException(status_code=400, detail="Invalid notification data")
@@ -314,6 +331,14 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
         if username is None:
             raise WebSocketDisconnect
         token_data = TokenData(username=username)
+        if lapi is None:
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "Leither service not available",
+            }))
+            await websocket.close()
+            return
+        
         user = lapi.get_user(username=token_data.username)
         if not user:
             raise WebSocketDisconnect

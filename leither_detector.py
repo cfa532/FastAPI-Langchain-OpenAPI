@@ -20,7 +20,7 @@ class LeitherPortDetector:
     
     def __init__(self, cache_file="leither_port_cache.json"):
         self.detected_port: Optional[int] = None
-        self.default_port = 8081
+        self.default_port = 8080
         self.port_range = (8000, 9000)
         self.cache_file = cache_file
         
@@ -48,11 +48,13 @@ class LeitherPortDetector:
                             if port_match:
                                 port = int(port_match.group(1))
                                 if self.port_range[0] <= port <= self.port_range[1]:
-                                    logger.info(f'Testing port {port} for webapi endpoint...')
+                                    logger.info(f'Testing port {port} for Leither webapi endpoint...')
                                     is_web_api = await self._test_web_api_endpoint(port)
                                     if is_web_api:
-                                        logger.info(f'Found webapi endpoint on port {port} - likely Leither service')
+                                        logger.info(f'Found valid Leither webapi endpoint on port {port}')
                                         return port
+                                    else:
+                                        logger.info(f'Port {port} does not have valid Leither service')
             except Exception as error:
                 logger.warning(f'Error using netstat: {error}')
             
@@ -65,21 +67,29 @@ class LeitherPortDetector:
     
     async def _test_web_api_endpoint(self, port: int) -> bool:
         """
-        Test if a port has a webapi endpoint
+        Test if a port has a valid Leither webapi endpoint
         Args:
             port: Port to test
         Returns:
-            True if webapi endpoint exists
+            True if valid Leither webapi endpoint exists
         """
         try:
             async with aiohttp.ClientSession() as session:
+                # Test for webapi endpoint specifically
                 async with session.get(
                     f'http://localhost:{port}/webapi/',
                     timeout=aiohttp.ClientTimeout(total=2)
                 ) as response:
-                    # Any response (200, 404, 405) means endpoint exists
-                    return response.status in [200, 404, 405]
-        except Exception:
+                    logger.info(f'Port {port} webapi response status: {response.status}')
+                    # Only 200 response indicates valid endpoint
+                    if response.status == 200:
+                        logger.info(f'Port {port} has valid webapi endpoint, assuming it is Leither service')
+                        return True
+                    else:
+                        logger.info(f'Port {port} webapi endpoint returned {response.status}, not valid Leither service')
+                        return False
+        except Exception as e:
+            logger.info(f'Port {port} connection test failed: {e}')
             return False
     
     async def _test_port_connection(self, port: int) -> bool:
