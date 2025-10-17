@@ -2,6 +2,7 @@ import json, sys, random
 from datetime import datetime, timedelta, timezone
 from typing import Annotated, Union
 from fastapi import Depends, FastAPI, HTTPException, status, Query, WebSocket, WebSocketDisconnect, Request
+from contextlib import asynccontextmanager
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
@@ -58,7 +59,43 @@ class TokenData(BaseModel):
     username: Union[str, None] = None
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-app = FastAPI()
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """Initialize Leither port detection on startup"""
+    global LEITHER_PORT, lapi
+    print("=" * 50, flush=True)
+    print("LIFESPAN STARTUP TRIGGERED", flush=True)
+    print("=" * 50, flush=True)
+    try:
+        print("Starting FastAPI application...", flush=True)
+        print("Detecting Leither service port...", flush=True)
+        
+        # Detect and store the Leither port
+        LEITHER_PORT = await leither_port_detector.get_leither_port()
+        print(f"Leither service detected on port: {LEITHER_PORT}", flush=True)
+        print(f"LEITHER_PORT = {LEITHER_PORT}", flush=True)
+        print(f"LEITHER_PORT type: {type(LEITHER_PORT)}", flush=True)
+        
+        # Initialize the LeitherAPI with the detected port
+        lapi = LeitherAPI(LEITHER_PORT)
+        print("LeitherAPI initialized successfully", flush=True)
+        print("=" * 50, flush=True)
+        
+    except RuntimeError as e:
+        print(f"CRITICAL ERROR: {e}", flush=True)
+        print("FastAPI startup aborted - Leither service is required", flush=True)
+        raise e  # Re-raise to prevent FastAPI from starting without Leither
+    except Exception as e:
+        print(f"Unexpected error during startup: {e}", flush=True)
+        raise e  # Re-raise unexpected errors
+    
+    yield  # This is where the app runs
+    
+    # Cleanup code goes here (shutdown)
+    print("Shutting down...", flush=True)
+
+app = FastAPI(lifespan=lifespan)
 scheduler = BackgroundScheduler()
 
 def periodic_task():
@@ -94,31 +131,6 @@ def periodic_task():
 scheduler.add_job(periodic_task, 'interval', seconds=3600)
 scheduler.start()
 
-# Startup event to detect Leither port
-@app.on_event("startup")
-async def startup_event():
-    """Initialize Leither port detection on startup"""
-    global LEITHER_PORT, lapi
-    try:
-        print("Starting FastAPI application...")
-        print("Detecting Leither service port...")
-        
-        # Detect and store the Leither port
-        LEITHER_PORT = await leither_port_detector.get_leither_port()
-        print(f"Leither service detected on port: {LEITHER_PORT}")
-        print(f"LEITHER_PORT = {LEITHER_PORT}")
-        
-        # Initialize the LeitherAPI with the detected port
-        lapi = LeitherAPI(LEITHER_PORT)
-        print("LeitherAPI initialized successfully")
-        
-    except RuntimeError as e:
-        print(f"CRITICAL ERROR: {e}")
-        print("FastAPI startup aborted - Leither service is required")
-        raise e  # Re-raise to prevent FastAPI from starting without Leither
-    except Exception as e:
-        print(f"Unexpected error during startup: {e}")
-        raise e  # Re-raise unexpected errors
 
 # Configure CORS
 app.add_middleware(
