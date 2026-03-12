@@ -1,10 +1,10 @@
-langchain
-langchain_openai
+litellm
+tiktoken
 python-dotenv
-langchain-community
 websockets
 fastapi
 app-store-server-library
 apscheduler
 python-jose[cryptography]
-hproseaiohttp
+hprose
+aiohttp

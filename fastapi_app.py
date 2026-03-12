@@ -8,13 +8,12 @@ from fastapi.responses import HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
 from jose import jwt, JWTError
 from pydantic import BaseModel
-from langchain_openai import ChatOpenAI
-from langchain.text_splitter import RecursiveCharacterTextSplitter
+import litellm
+import tiktoken
 from dotenv import load_dotenv, dotenv_values
 load_dotenv()
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from openaiCBHandler import get_cost_tracker_callback
 from leither_api import LeitherAPI
 from utilities import ConnectionManager, UserIn, UserOut, UserInDB
 from pet_hash import get_password_hash, verify_password
@@ -45,11 +44,19 @@ LLM_MODEL = env["CURRENT_LLM_MODEL"]
 OPENAI_KEYS = env["OPENAI_KEYS"].split('|')
 SERVER_MAINTENCE = env["SERVER_MAINTENCE"]
 
-token_splitter = RecursiveCharacterTextSplitter.from_tiktoken_encoder(
-    encoding_name = "cl100k_base",
-    chunk_size = MAX_TOKEN[LLM_MODEL]/4*3,  # Set your desired chunk size in tokens
-    chunk_overlap = 50  # Set the overlap between chunks if needed
-)
+def split_text(text: str, model: str, max_tokens: int, overlap: int = 50) -> list[str]:
+    try:
+        enc = tiktoken.encoding_for_model(model)
+    except KeyError:
+        enc = tiktoken.get_encoding("cl100k_base")
+    tokens = enc.encode(text)
+    if len(tokens) <= max_tokens:
+        return [text]
+    chunks, i = [], 0
+    while i < len(tokens):
+        chunks.append(enc.decode(tokens[i:i + max_tokens]))
+        i += max_tokens - overlap
+    return chunks
 
 class Token(BaseModel):
     access_token: str
@@ -335,6 +342,9 @@ async def get_files(page: str):
 
 @app.websocket(BASE_ROUTE + "/ws/")
 async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
+    client_host = websocket.client.host if websocket.client else "unknown"
+    server_host = websocket.url.hostname
+    print(f"[WS] New connection — client: {client_host}, server: {server_host}, url: {websocket.url}", flush=True)
     await connectionManager.connect(websocket)
     try:
         # token = websocket.query_params.get("token")
@@ -385,7 +395,6 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                     continue
                 elif user.dollar_balance <= MIN_BALANCE:
                     llm_model = "gpt-3.5-turbo"
-                    token_splitter._chunk_size = MAX_TOKEN["gpt-3.5-turbo"]
             else:
                 # a subscriber. Check monthly usage
                 current_month = str(datetime.now().month)
@@ -396,63 +405,71 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
                         }))
                     continue
 
-            # create the right Chat LLM
+            # Map provider to litellm model string and kwargs
             if params["llm"] == "openai":
-                # randomly select OpenAI key from a list
-                CHAT_LLM = ChatOpenAI(
-                    api_key = random.choice(OPENAI_KEYS),       # pick a random OpenAI key from a list
-                    temperature = float(params["temperature"]),
-                    model = llm_model,
-                    streaming = True,
-                    verbose = True
-                )
-            elif params["llm"] == "qianfan":
+                model_str = llm_model                           # e.g. "gpt-4o"
+                extra_kwargs = {"api_key": random.choice(OPENAI_KEYS)}
+            elif params["llm"] == "gemini":
+                model_str = f"gemini/{llm_model}"               # e.g. "gemini/gemini-2.0-flash"
+                extra_kwargs = {}
+            elif params["llm"] == "anthropic":
+                model_str = f"anthropic/{llm_model}"            # e.g. "anthropic/claude-sonnet-4-6"
+                extra_kwargs = {}
+            else:
                 continue
 
-            # lapi.bookkeeping(0.015, 123, user)
-            # await websocket.send_text(json.dumps({
-            #     "type": "result",
-            #     "answer": event["input"]["rawtext"], 
-            #     "tokens": int(111 * lapi.cost_efficiency),
-            #     "cost": 0.015 * lapi.cost_efficiency,
-            #     }))
-            # continue
-
-            chain = CHAT_LLM
+            chunk_size = int(MAX_TOKEN.get(llm_model, 4096) * 3 / 4)
             resp = ""
-            chunks = token_splitter.split_text(query["rawtext"])
-            for index, ci in enumerate(chunks):
-                with get_cost_tracker_callback(llm_model) as cb:
-                    # chain = ConversationChain(llm=CHAT_LLM, memory=memory, output_parser=StrOutputParser())
-                    async for chunk in chain.astream(query["prompt"] + "\n\n" + ci):
-                        print(chunk.content, end="|", flush=True)    # chunk size can be big
-                        resp += chunk.content
-                        await websocket.send_text(json.dumps({"type": "stream", "data": chunk.content}))
-                    print('\n', cb, '\nLLMModel:', llm_model, index, len(chunks))
-                    sys.stdout.flush()
+            text_chunks = split_text(query["rawtext"], llm_model, chunk_size)
+            print(f"[WS] model={model_str}, chunks={len(text_chunks)}, chunk_size={chunk_size}", flush=True)
+            for index, ci in enumerate(text_chunks):
+                collected_chunks = []
+                print(f"[WS] calling litellm for chunk {index}", flush=True)
+                stream = await litellm.acompletion(
+                    model=model_str,
+                    messages=[{"role": "user", "content": query["prompt"] + "\n\n" + ci}],
+                    temperature=float(params["temperature"]),
+                    stream=True,
+                    **extra_kwargs,
+                )
+                async for chunk in stream:
+                    collected_chunks.append(chunk)
+                    content = chunk.choices[0].delta.content or ""
+                    if content:
+                        print(content, end="|", flush=True)
+                        resp += content
+                        await websocket.send_text(json.dumps({"type": "stream", "data": content}))
 
-                    await websocket.send_text(json.dumps({
-                        "type": "result",
-                        "answer": resp,
-                        "tokens": int(cb.total_tokens * lapi.cost_efficiency),  # sum of prompt tokens and completion tokens. Prices are different.
-                        "cost": cb.total_cost * lapi.cost_efficiency,           # total cost in USD
-                        "eof": index == (len(chunks) - 1),                      # end of content
-                        }))
-                    lapi.bookkeeping(cb.total_cost, cb.total_tokens, user)
+                full_response = litellm.stream_chunk_builder(collected_chunks)
+                total_cost = litellm.completion_cost(completion_response=full_response)
+                total_tokens = full_response.usage.total_tokens if full_response.usage else 0
+                print(f"\nLLMModel: {llm_model}, chunk {index}/{len(text_chunks)}, tokens: {total_tokens}, cost: ${total_cost:.6f}")
+                sys.stdout.flush()
+
+                await websocket.send_text(json.dumps({
+                    "type": "result",
+                    "answer": resp,
+                    "tokens": int(total_tokens * lapi.cost_efficiency),
+                    "cost": total_cost * lapi.cost_efficiency,
+                    "eof": index == (len(text_chunks) - 1),
+                    }))
+                lapi.bookkeeping(total_cost, total_tokens, user)
 
     except WebSocketDisconnect:
         connectionManager.disconnect(websocket)
-    except JWTError:
-        print("JWTError", e)
-        sys.stdout.flush()
+    except JWTError as e:
+        print(f"[WS] JWTError: {e}", flush=True)
         await websocket.send_text(json.dumps({"type": "error", "message": "Invalid token. Try to re-login."}))
     except HTTPException as e:
-        print("HTTPException", e)
-        sys.stdout.flush()
-        # connectionManager.disconnect(websocket)
-    # finally:
-    #     if websocket.client_state == WebSocketState.CONNECTED:
-    #         await websocket.close()
+        print(f"[WS] HTTPException: {e}", flush=True)
+    except Exception as e:
+        import traceback
+        print(f"[WS] Unhandled exception: {type(e).__name__}: {e}", flush=True)
+        traceback.print_exc()
+        try:
+            await websocket.send_text(json.dumps({"type": "error", "message": str(e)}))
+        except Exception:
+            pass
 
 # if __name__ == "__main__":
 #     import uvicorn
