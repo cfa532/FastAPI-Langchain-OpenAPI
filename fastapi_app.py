@@ -363,7 +363,12 @@ async def websocket_endpoint(websocket: WebSocket, token: str = Query()):
         
         user = lapi.get_user(username=token_data.username)
         if not user:
-            raise WebSocketDisconnect
+            await websocket.send_text(json.dumps({
+                "type": "error",
+                "message": "User not found. Please re-login.",
+            }))
+            await websocket.close()
+            return
         
         if SERVER_MAINTENCE == "true":
             await websocket.send_text(json.dumps({
